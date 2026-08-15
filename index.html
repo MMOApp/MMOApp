@@ -200,6 +200,16 @@
             <i class="fa-solid fa-id-badge"></i> Pisaporte V2
         </h1>
         <div class="flex items-center gap-3">
+            <!-- Pill informativa del curso escolar activo.
+                 Para admin: clicable, lleva a la vista de gestión de cursos.
+                 Para tutor/profesor: solo informativa (no puede cambiar de curso). -->
+            <button id="school-year-pill" onclick="onSchoolYearPillClick()"
+                class="hidden items-center gap-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-semibold rounded-md px-2.5 py-1 border border-blue-500 transition-colors"
+                title="Curso escolar activo">
+                <i class="fa-solid fa-calendar-days text-blue-200 text-sm"></i>
+                <span id="school-year-pill-label">—</span>
+                <i class="fa-solid fa-gear text-[10px] text-blue-200 hidden" id="school-year-pill-gear"></i>
+            </button>
             <span id="current-user-name" class="text-xs font-semibold bg-blue-700 px-2 py-1 rounded-md">Usuario</span>
             <button onclick="logout()" class="text-white hover:text-gray-200" title="Cerrar sesión">
                 <i class="fa-solid fa-right-from-bracket"></i>
@@ -232,7 +242,7 @@
 
                     <!-- Formulario de Registro (Autoregistro) -->
                     <div id="form-register" class="space-y-4 hidden">
-                        <input type="text" id="reg-name" placeholder="Nombre completo" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50">
+                        <input type="text" id="reg-name" placeholder="Apellido1 Apellido2, Nombre" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50">
                         <input type="text" id="reg-username" placeholder="Usuario de acceso" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50">
                         <input type="password" id="reg-password" placeholder="Contraseña" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50">
                         <input type="password" id="reg-password-confirm" placeholder="Repetir contraseña" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50">
@@ -246,7 +256,7 @@
 
                     <!-- Formulario de Creación Súper Admin (Solo si no hay usuarios) -->
                     <div id="form-setup" class="space-y-4 hidden">
-                        <input type="text" id="setup-name" placeholder="Nombre completo" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50">
+                        <input type="text" id="setup-name" placeholder="Apellido1 Apellido2, Nombre" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50">
                         <input type="text" id="setup-username" placeholder="Usuario de acceso" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50">
                         <input type="password" id="setup-password" placeholder="Contraseña" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50">
                         <input type="password" id="setup-password-confirm" placeholder="Repetir contraseña" class="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-gray-50">
@@ -397,7 +407,7 @@
         <section id="view-reports" class="view-section hidden">
             <div class="max-w-xl mx-auto mt-2 space-y-4">
                 <!-- Filtros comunes (periodo + unidad para pestaña Usuarios) con flujo numerado -->
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <div id="report-filters-card" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                     <div class="flex justify-between items-center mb-3">
                         <h2 class="font-bold text-gray-700"><i class="fa-solid fa-chart-pie text-blue-500"></i> Filtros de Informe</h2>
                         <div class="flex gap-2">
@@ -438,6 +448,9 @@
                         </button>
                         <button id="tab-btn-users" onclick="switchReportTab('users')" class="flex-1 py-3 px-4 text-sm font-bold text-gray-500 bg-white border-b-2 border-transparent hover:bg-gray-50 transition-colors">
                             <i class="fa-solid fa-user-check"></i> Por Usuarios
+                        </button>
+                        <button id="tab-btn-timeslots" onclick="switchReportTab('timeslots')" class="flex-1 py-3 px-4 text-sm font-bold text-gray-500 bg-white border-b-2 border-transparent hover:bg-gray-50 transition-colors">
+                            <i class="fa-solid fa-clock"></i> Por Tramos
                         </button>
                     </div>
 
@@ -573,6 +586,127 @@
                             <div id="report-user-detail-body" class="text-xs text-gray-700 space-y-1"></div>
                         </div>
                     </div>
+
+                    <!-- Contenido pestaña Tramos Horarios -->
+                    <div id="report-tab-timeslots" class="p-4 space-y-3 hidden">
+                        <!-- Cabecera con boton PDF (la tarjeta de filtros comun se oculta en esta pestana) -->
+                        <div class="flex justify-end">
+                            <button id="btn-print-timeslots" onclick="printReport()" class="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-md font-semibold hover:bg-blue-100 transition-colors"><i class="fa-solid fa-print"></i> PDF</button>
+                        </div>
+
+                        <!-- Paso 1: Dia concreto -->
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">1</span>
+                                Día
+                            </label>
+                            <input type="date" id="report-ts-date" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
+                        </div>
+
+                        <!-- Paso 2: Unidad (dropdown; para tutores se bloquea a su grupo) -->
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">2</span>
+                                Unidad
+                            </label>
+                            <select id="report-ts-group" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
+                                <option value="ALL">Todas las unidades</option>
+                            </select>
+                        </div>
+
+                        <!-- Paso 3: Tramos horarios (seleccion multiple) -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center">
+                                <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                    <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">3</span>
+                                    Tramos horarios
+                                </label>
+                                <div class="flex gap-1">
+                                    <button type="button" onclick="selectAllTimeSlots(true)" class="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold hover:bg-blue-100">Todos</button>
+                                    <button type="button" onclick="selectAllTimeSlots(false)" class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-semibold hover:bg-gray-200">Ninguno</button>
+                                </div>
+                            </div>
+                            <div id="report-ts-slots-buttons" class="flex flex-wrap gap-2">
+                                <!-- Botones de tramos generados dinamicamente -->
+                                <span class="text-xs text-gray-400 italic">Cargando tramos...</span>
+                            </div>
+                            <p class="text-[10px] text-gray-400 italic">Horario escolar: 1ª (8:15-9:15) · 2ª (9:15-10:15) · 3ª (10:15-11:15) · Recreo (11:15-11:45) · 4ª (11:45-12:45) · 5ª (12:45-13:45) · 6ª (13:45-14:45)</p>
+                        </div>
+
+                        <!-- Paso 4: Filtro de alumno (opcional) -->
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">4</span>
+                                Alumno <span class="text-gray-400 font-normal normal-case">(opcional: deja vacío para ver todos)</span>
+                            </label>
+                            <div class="relative">
+                                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                                <input type="text" id="report-ts-student-search" placeholder="Buscar alumno por nombre..." class="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" oninput="filterTimeSlotStudentSelect()">
+                            </div>
+                            <select id="report-ts-student" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
+                                <option value="ALL">Todos los alumnos</option>
+                            </select>
+                        </div>
+
+                        <!-- Paso 5: Filtro por estado de autorizacion -->
+                        <div class="space-y-2">
+                            <label class="block text-[10px] font-bold text-blue-600 uppercase">
+                                <span class="inline-block w-4 h-4 bg-blue-600 text-white rounded-full text-[9px] leading-4 text-center mr-1">5</span>
+                                Autorizacion
+                            </label>
+                            <select id="report-ts-auth-filter" class="w-full border border-gray-300 rounded-lg p-2 text-sm" onchange="generateReport()">
+                                <option value="ALL">Todas las salidas</option>
+                                <option value="authorized">Solo autorizadas</option>
+                                <option value="denied">Solo denegadas</option>
+                                <option value="notrequested">Solo «no solicito»</option>
+                            </select>
+                        </div>
+
+                        <!-- Stats globales -->
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="bg-blue-100 p-3 rounded-lg text-center">
+                                <p class="text-blue-800 text-[10px] font-bold uppercase">Salidas</p>
+                                <p class="text-xl font-black text-blue-600 mt-1" id="stat-ts-total">0</p>
+                            </div>
+                            <div class="bg-green-100 p-3 rounded-lg text-center">
+                                <p class="text-green-800 text-[10px] font-bold uppercase">Autorizadas</p>
+                                <p class="text-xl font-black text-green-600 mt-1" id="stat-ts-auth">0</p>
+                            </div>
+                            <div class="bg-red-100 p-3 rounded-lg text-center">
+                                <p class="text-red-800 text-[10px] font-bold uppercase">Denegadas</p>
+                                <p class="text-xl font-black text-red-600 mt-1" id="stat-ts-denied">0</p>
+                            </div>
+                        </div>
+
+                        <!-- Listado de alumnos unicos que salieron (resumen superior) -->
+                        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                            <h4 class="font-bold text-amber-800 text-xs mb-1 flex items-center gap-1">
+                                <i class="fa-solid fa-users"></i> Alumnado que salió al servicio
+                            </h4>
+                            <p class="text-2xl font-black text-amber-700" id="stat-ts-unique-students">0</p>
+                            <p class="text-[10px] text-amber-600">alumno(s) distinto(s) en el tramo seleccionado</p>
+                        </div>
+
+                        <!-- Tabla de registros (cada salida = una fila) -->
+                        <div id="report-ts-table-wrapper" class="overflow-x-auto border border-gray-100 rounded-lg">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-50 text-gray-600 text-xs uppercase border-b border-gray-200">
+                                        <th class="p-3">Alumno</th>
+                                        <th class="p-3">Unidad</th>
+                                        <th class="p-3">Tramo</th>
+                                        <th class="p-3">Hora</th>
+                                        <th class="p-3">Estado</th>
+                                        <th class="p-3">Por</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-ts-table-body" class="text-sm divide-y divide-gray-100"></tbody>
+                            </table>
+                            <div id="report-ts-empty" class="p-6 text-center text-gray-500 hidden">
+                                No hay registros para el día y tramos seleccionados.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -597,6 +731,64 @@
                             <tbody id="users-table-body" class="text-sm divide-y divide-gray-100"></tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= VISTA: GESTIÓN DE CURSOS ESCOLARES (solo admin) ================= -->
+        <section id="view-schoolyears" class="view-section hidden">
+            <div class="max-w-xl mx-auto mt-2 space-y-4">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-bold text-gray-700 flex items-center gap-2">
+                            <i class="fa-solid fa-calendar-days text-blue-500"></i> Cursos Escolares
+                        </h3>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-4">
+                        Un curso escolar va del <b>1 de septiembre</b> al <b>31 de agosto</b> del año siguiente.
+                        Los datos (alumnado y registros) se aíslan por curso: al cambiar el curso activo, solo
+                        se ven los datos de ese curso. Los usuarios son compartidos entre todos los cursos.
+                    </p>
+
+                    <!-- Curso activo destacado -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                        <div class="text-xs text-blue-700 font-semibold uppercase tracking-wide">Curso activo</div>
+                        <div id="schoolyears-active-label" class="text-lg font-bold text-blue-900 mt-1">—</div>
+                    </div>
+
+                    <!-- Formulario para añadir un nuevo curso -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
+                        <div class="text-xs text-gray-600 font-semibold mb-2">Añadir nuevo curso</div>
+                        <div class="flex gap-2">
+                            <input type="text" id="schoolyears-new-input" placeholder="AAAA/AAAA (p. ej. 2026/2027)"
+                                class="flex-1 border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <button onclick="onAddSchoolYearClick()"
+                                class="bg-green-600 hover:bg-green-700 text-white text-sm font-bold px-3 py-2 rounded-md transition-colors">
+                                <i class="fa-solid fa-plus"></i> Añadir
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-gray-500 mt-1">El segundo año debe ser el siguiente al primero.</p>
+                    </div>
+
+                    <!-- Listado de cursos -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 text-gray-600 text-xs uppercase border-b border-gray-200">
+                                    <th class="p-2">Curso</th>
+                                    <th class="p-2 text-center">Estado</th>
+                                    <th class="p-2 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="schoolyears-table-body" class="text-sm divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                    <p class="text-[11px] text-gray-500 mt-3">
+                        <i class="fa-solid fa-circle-info text-blue-400"></i>
+                        Solo se pueden <b>eliminar cursos futuros</b> (que aún no hayan comenzado). Si tienen
+                        datos asociados, estos también se borrarán en cascada. Los cursos <b>en curso</b> y los
+                        <b>vencidos</b> no se pueden eliminar, para preservar el historial.
+                    </p>
                 </div>
             </div>
         </section>
@@ -631,13 +823,20 @@
         <i class="fa-solid fa-info-circle"></i> <span id="toast-msg">Mensaje</span>
     </div>
 
+    <!-- Toast Modal con acción (deshacer) -->
+    <div id="toast-action" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-blue-700 text-white px-4 py-2.5 rounded-lg shadow-lg transition-opacity duration-300 opacity-0 z-50 flex items-center gap-3 max-w-md">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <span id="toast-action-msg" class="text-sm flex-1">Mensaje</span>
+        <button id="toast-action-btn" class="bg-white text-blue-700 font-bold px-3 py-1 rounded text-xs hover:bg-blue-50 transition-colors whitespace-nowrap">Deshacer</button>
+    </div>
+
     <!-- Confirm Modal -->
     <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center" style="display: none;">
         <div class="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl transform transition-all">
             <h3 id="confirm-title" class="text-lg font-bold text-gray-800 mb-2">Confirmar</h3>
             <p id="confirm-message" class="text-gray-600 mb-6 text-sm">¿Estás seguro?</p>
             <div class="flex justify-end gap-3">
-                <button onclick="closeConfirmModal()" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors">Cancelar</button>
+                <button id="confirm-cancel-btn" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors">Cancelar</button>
                 <button id="confirm-action-btn" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors">Eliminar</button>
             </div>
         </div>
@@ -649,7 +848,7 @@
             <h3 id="user-modal-title" class="text-lg font-bold text-gray-800 mb-4">Nuevo Usuario</h3>
             <div class="space-y-3">
                 <input type="hidden" id="modal-user-id">
-                <input type="text" id="modal-user-name" placeholder="Nombre completo" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <input type="text" id="modal-user-name" placeholder="Apellido1 Apellido2, Nombre" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 <input type="text" id="modal-user-username" placeholder="Usuario de acceso" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 <input type="password" id="modal-user-password" placeholder="Contraseña" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 <input type="password" id="modal-user-password-confirm" placeholder="Repetir contraseña" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
@@ -670,14 +869,16 @@
     <!-- Modal Formulario Alumno Individual -->
     <div id="student-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center" style="display: none;">
         <div class="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-xl transform transition-all">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">Añadir Alumno</h3>
+            <h3 id="student-modal-title" class="text-lg font-bold text-gray-800 mb-4">Añadir Alumno</h3>
+            <!-- Campo oculto para el ID del alumno cuando se está editando -->
+            <input type="hidden" id="modal-student-id" value="">
             <div class="space-y-3">
-                <input type="text" id="modal-student-name" placeholder="Nombre completo" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <input type="text" id="modal-student-name" placeholder="Apellido1 Apellido2, Nombre" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                 <input type="text" id="modal-student-course" placeholder="Grupo (Ej: 1ºA)" class="w-full border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
             </div>
             <div class="flex justify-end gap-3 mt-6">
                 <button onclick="closeStudentModal()" class="px-4 py-2 text-gray-500 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors">Cancelar</button>
-                <button onclick="saveStudentModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">Añadir</button>
+                <button id="student-modal-submit-btn" onclick="saveStudentModal()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">Añadir</button>
             </div>
         </div>
     </div>
@@ -693,30 +894,10 @@
         </div>
     </div>
 
-    <!-- Boton flotante de diagnostico Firebase (esquina inferior derecha) -->
-    <button id="fb-debug-btn" onclick="window.toggleFBDebug()" class="fixed bottom-20 right-3 z-40 bg-gray-700 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg hover:bg-gray-800 no-print" title="Diagnostico Firebase">
-        <i class="fa-solid fa-stethoscope text-xs"></i>
-    </button>
-
-    <!-- Panel de diagnostico Firebase -->
-    <div id="fb-debug-panel" class="fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center no-print" style="display: none;">
-        <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl max-h-[85vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-800">Diagnostico Firebase</h3>
-                <button onclick="window.toggleFBDebug()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div id="fb-debug-content" class="text-xs text-gray-700 space-y-2 font-mono"></div>
-            <div class="flex gap-2 mt-4">
-                <button onclick="window.location.reload()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">Recargar</button>
-                <button onclick="window.toggleFBDebug()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium">Cerrar</button>
-            </div>
-        </div>
-    </div>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, updateDoc, onSnapshot, doc, deleteDoc, enableIndexedDbPersistence, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, updateDoc, setDoc, getDoc, onSnapshot, doc, deleteDoc, enableIndexedDbPersistence, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // ================= CONFIGURACIÓN FIREBASE =================
         const userFirebaseConfig = {
@@ -749,24 +930,10 @@
         // Si se cambia, los datos existentes (alumnos, usuarios, logs) DEJARAN de verse
         // porque la app buscara en una ruta distinta.
         //
-        // appIds conocidos donde pueden existir datos:
-        //   - 'pisaporte-app-v1' (ORIGINAL - donde estan los datos historicos)
-        //   - 'pisaporte-v2-app' (usado temporalmente, posiblemente vacio)
-        //   - 'mmo-v2-app'       (usado temporalmente, posiblemente vacio)
-        //
         // Mantenemos 'pisaporte-app-v1' para preservar los datos existentes.
         const DEFAULT_APP_ID = 'pisaporte-app-v1';
-        const KNOWN_APP_IDS = ['pisaporte-app-v1', 'pisaporte-v2-app', 'mmo-v2-app'];
         const appId = typeof __app_id !== 'undefined' ? __app_id : DEFAULT_APP_ID;
-        // activeAppId: puede ser cambiado por el usuario via panel de diagnostico (se guarda en localStorage)
-        let activeAppId = appId;
-        try {
-            const stored = localStorage.getItem('pisaporte_active_app_id');
-            if (stored && KNOWN_APP_IDS.includes(stored)) {
-                activeAppId = stored;
-                console.log("appId activo recuperado de localStorage:", activeAppId);
-            }
-        } catch (e) {}
+        const activeAppId = appId;
 
         // ================= ESTADO GLOBAL =================
         let currentUser = null;         // Autenticación anónima Firebase
@@ -780,17 +947,53 @@
         let currentScannedStudent = null;
         let isAppInitialized = false;
 
-        // Diagnostico Firebase (visible para el usuario via consola y panel)
+        // ================= CURSOS ESCOLARES =================
+        // Un curso escolar va del 1 de septiembre de un año al 31 de agosto del
+        // año siguiente. Se etiqueta como "YYYY/YYYY+1" (p. ej. "2025/2026").
+        // - currentSchoolYear: id del curso activo (string "YYYY/YYYY+1").
+        // - allSchoolYears: array de objetos { id, label, createdAt, archived }.
+        // - Persistencia: documento "__settings_schoolYears" en pisaporte_users
+        //   (ver detalles en la sección "PERSISTENCIA DE CURSOS ESCOLARES" más abajo).
+        // - Filtrado: las 3 colecciones (users/students/logs) llevan un campo
+        //   `schoolYear` y los listeners filtran por currentSchoolYear.
+        // - Solo el rol "admin" puede cambiar de curso, crear cursos o archivarlos.
+        let currentSchoolYear = null;     // string "YYYY/YYYY+1"
+        let allSchoolYears = [];          // [{ id, label, createdAt, archived }]
+
+        // Calcula el id de curso escolar ("YYYY/YYYY+1") al que pertenece una fecha.
+        // Si month >= 8 (septiembre o posterior) → curso que empieza ese año.
+        // Si month < 8 (enero-agosto) → curso que empezó el año anterior.
+        function computeSchoolYearForDate(date) {
+            const d = new Date(date);
+            const y = d.getFullYear();
+            const m = d.getMonth(); // 0-11
+            const startYear = m >= 8 ? y : y - 1;
+            return `${startYear}/${startYear + 1}`;
+        }
+
+        // Devuelve el id del curso escolar actual según la fecha de hoy.
+        function getCurrentSchoolYear() {
+            return computeSchoolYearForDate(new Date());
+        }
+
+        // Devuelve una etiqueta legible: "2025/2026" → "Curso 2025/2026".
+        function formatSchoolYearLabel(sy) {
+            if (!sy) return '';
+            return `Curso ${sy}`;
+        }
+        window.computeSchoolYearForDate = computeSchoolYearForDate;
+        window.getCurrentSchoolYear = getCurrentSchoolYear;
+        window.formatSchoolYearLabel = formatSchoolYearLabel;
+
+        // Estado de Firebase para depuración interna (visible en consola como
+        // window.__firebaseDebug). Sin panel de UI desde la v2.
         window.__firebaseDebug = {
             appId: activeAppId,
-            defaultAppId: DEFAULT_APP_ID,
-            knownAppIds: KNOWN_APP_IDS,
             config: { projectId: firebaseConfig.projectId, authDomain: firebaseConfig.authDomain },
             authUid: null,
             collectionsLoaded: { users: false, students: false, logs: false },
             counts: { users: 0, students: 0, logs: 0 },
-            lastErrors: [],
-            otherPaths: null  // Resultado de escanear otras rutas
+            lastErrors: []
         };
 
         // ================= INICIALIZACIÓN Y AUTH FIREBASE =================
@@ -869,187 +1072,699 @@
             }
         });
 
-        // Failsafe
+        // Failsafe: si Firebase no responde en 5s, ocultar el overlay de carga
+        // y mostrar un mensaje claro al usuario. Sin panel de diagnóstico desde
+        // la v2, así que el mensaje debe ser accionable por sí mismo.
         setTimeout(() => {
             const overlay = document.getElementById('loading-overlay');
             if(overlay && overlay.style.display !== 'none' && !isAppInitialized) {
                 hideLoading();
-                showToast("Aviso: Conexion muy lenta. Revisa la consola (F12).");
+                showToast("Conexion lenta. Revisa tu red y recarga la pagina si no carga en unos segundos.");
                 console.warn("Firebase no respondio en 5s. Estado actual:", window.__firebaseDebug);
             }
         }, 5000);
 
+        // ================= PERSISTENCIA DE CURSOS ESCOLARES =================
+        // Las funciones CRUD para cursos escolares. Se almacenan en un único
+        // documento con id SETTINGS_DOC_ID.
+        //
+        // **Ruta de almacenamiento**: el documento vive dentro de la colección
+        // `pisaporte_users` (que SÍ está permitida por las reglas de Firestore
+        // habituales de la app) usando un id reservado con prefijo `__`. Esto
+        // evita tener que actualizar las reglas para añadir una nueva colección
+        // `pisaporte_settings` (que era la ruta anterior y causaba
+        // `permission-denied` al crear/actualizar cursos).
+        //
+        // **Migración**: si en la ruta antigua `pisaporte_settings/schoolYears`
+        // hay datos, se migran a la nueva ruta en el primer arranque (ver
+        // `loadSchoolYears`). Best-effort: si la ruta antigua también está
+        // bloqueada por reglas, se ignora silenciosamente.
+        //
+        // Estructura del documento:
+        //   { current: "2025/2026",
+        //     years: [{ id: "2025/2026", label: "Curso 2025/2026", createdAt: <ts>, archived: false }, ...] }
+        //
+        // El documento se carga al iniciar la app (loadSchoolYears) y se mantiene
+        // sincronizado con un onSnapshot propio para que cambios desde otros
+        // dispositivos se reflejen al instante.
+
+        const SETTINGS_DOC_ID = '__settings_schoolYears'; // ID reservado (prefijo __ = no es un usuario real)
+        // Constante legacy: ID que se usaba antes en pisaporte_settings. Se mantiene
+        // solo para la migración one-shot.
+        const LEGACY_SETTINGS_DOC_ID = 'schoolYears';
+
+        function _settingsRef() {
+            return doc(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_users', SETTINGS_DOC_ID);
+        }
+        // Ruta antigua (legacy). Solo se usa para intentar migrar datos preexistentes.
+        function _oldSettingsRef() {
+            return doc(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_settings', LEGACY_SETTINGS_DOC_ID);
+        }
+
+        // Carga el documento de cursos escolares desde Firestore. Si no existe,
+        // lo crea con el curso actual (calculado por fecha) como único elemento.
+        // Devuelve { current, years }.
+        //
+        // Migración one-shot: si la nueva ruta (`pisaporte_users/__settings_schoolYears`)
+        // está vacía PERO la ruta antigua (`pisaporte_settings/schoolYears`) tiene
+        // datos, los copia a la nueva ruta. Best-effort: si la ruta antigua también
+        // está bloqueada por reglas, se ignora silenciosamente y se crea un curso
+        // inicial nuevo.
+        async function loadSchoolYears() {
+            try {
+                const snap = await getDoc(_settingsRef());
+                if (snap.exists()) {
+                    const data = snap.data() || {};
+                    const years = Array.isArray(data.years) ? data.years : [];
+                    // Sanitizar: cada year debe tener id y label
+                    allSchoolYears = years.filter(y => y && y.id).map(y => ({
+                        id: y.id,
+                        label: y.label || `Curso ${y.id}`,
+                        createdAt: y.createdAt || Date.now(),
+                        archived: !!y.archived
+                    }));
+                    currentSchoolYear = data.current || allSchoolYears[0]?.id || getCurrentSchoolYear();
+                } else {
+                    // La nueva ruta está vacía. Intentar migrar desde la ruta antigua
+                    // (pisaporte_settings/schoolYears) por si había datos preexistentes.
+                    let migrated = null;
+                    try {
+                        const oldSnap = await getDoc(_oldSettingsRef());
+                        if (oldSnap.exists()) {
+                            migrated = oldSnap.data() || {};
+                            console.log('Migrando cursos escolares desde ruta antigua (pisaporte_settings/schoolYears)...');
+                        }
+                    } catch (migrateErr) {
+                        // Lo más probable: permission-denied porque las reglas no
+                        // permiten leer pisaporte_settings. No es crítico: simplemente
+                        // no hay nada que migrar.
+                        console.warn('No se pudo leer la ruta antigua de cursos (esperado si las reglas no la permiten):', migrateErr.code || migrateErr.message);
+                    }
+
+                    if (migrated && Array.isArray(migrated.years) && migrated.years.length > 0) {
+                        // Aplicar datos migrados
+                        allSchoolYears = migrated.years.filter(y => y && y.id).map(y => ({
+                            id: y.id,
+                            label: y.label || `Curso ${y.id}`,
+                            createdAt: y.createdAt || Date.now(),
+                            archived: !!y.archived
+                        }));
+                        currentSchoolYear = migrated.current || allSchoolYears[0]?.id || getCurrentSchoolYear();
+                        // Persistir en la nueva ruta para no volver a migrar
+                        await setDoc(_settingsRef(), {
+                            current: currentSchoolYear,
+                            years: allSchoolYears
+                        });
+                        console.log(`Migración completada: ${allSchoolYears.length} curso(s) copiado(s) a la nueva ruta.`);
+                    } else {
+                        // Primer arranque real: crear curso actual
+                        const sy = getCurrentSchoolYear();
+                        allSchoolYears = [{
+                            id: sy,
+                            label: formatSchoolYearLabel(sy),
+                            createdAt: Date.now(),
+                            archived: false
+                        }];
+                        currentSchoolYear = sy;
+                        await setDoc(_settingsRef(), {
+                            current: currentSchoolYear,
+                            years: allSchoolYears
+                        });
+                        console.log('Curso escolar inicial creado:', sy);
+                    }
+                }
+            } catch (e) {
+                console.error('Error cargando cursos escolares:', e);
+                // Fallback no persistente: usar curso actual sin escribir en BD
+                const sy = getCurrentSchoolYear();
+                allSchoolYears = [{ id: sy, label: formatSchoolYearLabel(sy), createdAt: Date.now(), archived: false }];
+                currentSchoolYear = sy;
+                // Avisar al admin con el código de error real para que pueda diagnosticar
+                showToast(`Error cargando cursos: ${e.code || e.message || 'desconocido'}`);
+            }
+            // Persistir en localStorage como backup
+            try { localStorage.setItem('pisaporte_current_school_year', currentSchoolYear); } catch (e) {}
+            return { current: currentSchoolYear, years: allSchoolYears };
+        }
+        window.loadSchoolYears = loadSchoolYears;
+
+        // Cambia el curso activo. Solo admin puede llamarlo (verificado por el
+        // llamador). Recarga los listeners para que filtran por el nuevo curso.
+        async function setCurrentSchoolYear(syId) {
+            if (!allSchoolYears.some(y => y.id === syId)) {
+                showToast('El curso seleccionado no existe');
+                return;
+            }
+            if (syId === currentSchoolYear) return;
+            try {
+                await setDoc(_settingsRef(), {
+                    current: syId,
+                    years: allSchoolYears
+                }, { merge: true });
+                currentSchoolYear = syId;
+                try { localStorage.setItem('pisaporte_current_school_year', syId); } catch (e) {}
+                showToast(`Curso activo: ${formatSchoolYearLabel(syId)}`);
+                // Recargar datos filtrando por el nuevo curso
+                _reloadAllListeners();
+            } catch (e) {
+                console.error('Error cambiando curso activo:', e);
+                showToast(`Error al cambiar de curso: ${e.code || e.message || 'desconocido'}`);
+            }
+        }
+        window.setCurrentSchoolYear = setCurrentSchoolYear;
+
+        // Añade un nuevo curso escolar. El id debe seguir el formato "YYYY/YYYY+1".
+        // No permite duplicados. Devuelve true si se creó.
+        async function addSchoolYear(syId) {
+            syId = String(syId || '').trim();
+            // Validar formato "YYYY/YYYY+1"
+            const m = syId.match(/^(\d{4})\/(\d{4})$/);
+            if (!m) { showToast('Formato inválido. Usa AAAA/AAAA (p. ej. 2026/2027)'); return false; }
+            if (parseInt(m[1]) + 1 !== parseInt(m[2])) {
+                showToast('El segundo año debe ser el siguiente al primero (p. ej. 2026/2027)');
+                return false;
+            }
+            if (allSchoolYears.some(y => y.id === syId)) {
+                showToast('Ese curso ya existe');
+                return false;
+            }
+            const newYear = {
+                id: syId,
+                label: formatSchoolYearLabel(syId),
+                createdAt: Date.now(),
+                archived: false
+            };
+            const newYears = [...allSchoolYears, newYear].sort((a, b) => a.id.localeCompare(b.id));
+            try {
+                await setDoc(_settingsRef(), {
+                    current: currentSchoolYear,
+                    years: newYears
+                }, { merge: true });
+                allSchoolYears = newYears;
+                showToast(`Curso creado: ${formatSchoolYearLabel(syId)}`);
+                return true;
+            } catch (e) {
+                console.error('Error creando curso:', e);
+                showToast(`Error al crear el curso: ${e.code || e.message || 'desconocido'}`);
+                return false;
+            }
+        }
+        window.addSchoolYear = addSchoolYear;
+
+        // Marca/desmarca un curso como archivado. Los cursos archivados siguen
+        // existiendo y se pueden consultar cambiando el curso activo, pero no
+        // aparecen como "destacados" en el selector (se accede vía "ver todos").
+        async function toggleArchiveSchoolYear(syId) {
+            const newYears = allSchoolYears.map(y =>
+                y.id === syId ? { ...y, archived: !y.archived } : y
+            );
+            try {
+                await setDoc(_settingsRef(), {
+                    current: currentSchoolYear,
+                    years: newYears
+                }, { merge: true });
+                allSchoolYears = newYears;
+                const y = newYears.find(yy => yy.id === syId);
+                showToast(`${y.archived ? 'Archivado' : 'Desarchivado'}: ${formatSchoolYearLabel(syId)}`);
+            } catch (e) {
+                console.error('Error archivando curso:', e);
+                showToast(`Error al archivar el curso: ${e.code || e.message || 'desconocido'}`);
+            }
+        }
+        window.toggleArchiveSchoolYear = toggleArchiveSchoolYear;
+
+        // ================= ELIMINAR CURSO ESCOLAR =================
+        // Solo se pueden eliminar cursos FUTUROS (año de inicio > año de inicio
+        // del curso activo). Los cursos "en curso" (actual) y los "vencidos"
+        // (pasados) NO son eliminables en ningún caso, tengan o no tengan datos,
+        // porque el historial debe preservarse.
+        // Los cursos futuros SÍ se pueden eliminar siempre, aunque tengan datos
+        // asociados. En ese caso, los alumnos y registros vinculados a ese
+        // curso se eliminan en cascada (no tendrían sentido sin el curso).
+
+        // Devuelve el año de inicio de un id "YYYY/YYYY+1" (int) o NaN si formato inválido.
+        function _schoolYearStartYear(syId) {
+            const m = String(syId || '').match(/^(\d{4})\/\d{4}$/);
+            return m ? parseInt(m[1], 10) : NaN;
+        }
+
+        // Indica si un curso es "futuro" respecto al curso activo actual.
+        function isFutureSchoolYear(syId) {
+            const target = _schoolYearStartYear(syId);
+            const current = _schoolYearStartYear(currentSchoolYear);
+            if (isNaN(target) || isNaN(current)) return false;
+            return target > current;
+        }
+
+        async function deleteSchoolYear(syId) {
+            if (currentAppUser?.role !== 'admin') {
+                showToast('Solo el administrador puede eliminar cursos.');
+                return;
+            }
+            if (!allSchoolYears.some(y => y.id === syId)) {
+                showToast('El curso indicado no existe.');
+                return;
+            }
+            if (syId === currentSchoolYear) {
+                showToast('No se puede eliminar el curso en curso (activo). Cambia a otro curso primero si necesitas gestionarlo.');
+                return;
+            }
+            if (!isFutureSchoolYear(syId)) {
+                showToast('Solo se pueden eliminar cursos futuros (que aún no hayan comenzado). Los cursos en curso y los vencidos se preservan por su historial.');
+                return;
+            }
+
+            // Contar datos asociados (alumnos y logs con este schoolYear) para
+            // informar al usuario y, si los hay, eliminarlos en cascada.
+            try {
+                const studentsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_students');
+                const logsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_logs');
+                const [studentsSnap, logsSnap] = await Promise.all([
+                    getDocs(studentsRef),
+                    getDocs(logsRef)
+                ]);
+                const studentsToDelete = studentsSnap.docs.filter(d => d.data().schoolYear === syId);
+                const logsToDelete = logsSnap.docs.filter(d => d.data().schoolYear === syId);
+                const studentsCount = studentsToDelete.length;
+                const logsCount = logsToDelete.length;
+
+                // Mensaje de confirmación: avisa de la cascada si hay datos.
+                let msg;
+                if (studentsCount === 0 && logsCount === 0) {
+                    msg = `¿Eliminar definitivamente el curso "${formatSchoolYearLabel(syId)}"?\n\nNo tiene alumnos ni registros asociados, así que no se perderán datos. Esta acción no se puede deshacer.`;
+                } else {
+                    msg = `¿Eliminar definitivamente el curso futuro "${formatSchoolYearLabel(syId)}"?\n\n` +
+                        `Este curso tiene datos asociados que también se ELIMINARÁN en cascada:\n` +
+                        `• ${studentsCount} alumno(s)\n` +
+                        `• ${logsCount} registro(s)\n\n` +
+                        `Si prefieres conservarlos, cancela y usa "Reasignar todo aquí" sobre otro curso antes de eliminar.\n\nEsta acción no se puede deshacer.`;
+                }
+
+                window.showConfirmModal(
+                    'Eliminar curso',
+                    msg,
+                    async () => {
+                        try {
+                            // 1) Eliminar en cascada los alumnos y registros
+                            //    asociados a este curso (solo si los hay).
+                            const BATCH_SIZE = 450;
+                            const refs = [
+                                ...studentsToDelete.map(d => d.ref),
+                                ...logsToDelete.map(d => d.ref)
+                            ];
+                            const totalBatches = Math.ceil(refs.length / BATCH_SIZE);
+                            for (let i = 0; i < totalBatches; i++) {
+                                const chunk = refs.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+                                const batch = writeBatch(db);
+                                chunk.forEach(r => batch.delete(r));
+                                await batch.commit();
+                            }
+
+                            // 2) Eliminar el curso de la lista de school years.
+                            const newYears = allSchoolYears.filter(y => y.id !== syId);
+                            await setDoc(_settingsRef(), {
+                                current: currentSchoolYear,
+                                years: newYears
+                            }, { merge: true });
+                            allSchoolYears = newYears;
+
+                            const dataNote = (studentsCount || logsCount)
+                                ? ` (también se eliminaron ${studentsCount} alumno(s) y ${logsCount} registro(s) asociados).`
+                                : '.';
+                            showToast(`Curso eliminado: ${formatSchoolYearLabel(syId)}${dataNote}`);
+                            renderSchoolYearsList();
+                            _renderSchoolYearPill();
+                            // Recargar listeners para que el snapshot refleje
+                            // las eliminaciones en cascada.
+                            if (studentsCount || logsCount) _reloadAllListeners();
+                        } catch (e) {
+                            console.error('Error eliminando curso:', e);
+                            showToast(`Error al eliminar el curso: ${e.code || e.message || 'desconocido'}`);
+                        }
+                    },
+                    { actionLabel: 'Eliminar', actionClass: 'bg-red-600 hover:bg-red-700' }
+                );
+            } catch (e) {
+                console.error('Error contando datos asociados al curso a eliminar:', e);
+                showToast(`Error al verificar datos: ${e.code || e.message || 'desconocido'}`);
+            }
+        }
+        window.deleteSchoolYear = deleteSchoolYear;
+
+        // Reasigna TODOS los alumnos y registros al curso indicado, sobrescribiendo
+        // cualquier `schoolYear` previo (incluidos los documentos legacy sin
+        // `schoolYear`). No borra datos: solo reetiqueta. Util cuando se migra
+        // desde una versión anterior sin aislamiento por curso y se quiere
+        // asignar todo el historial a un curso concreto (p. ej. 2025/2026).
+        // Usa writeBatch en chunks de 450 (limite de Firebase: 500 ops/batch).
+        async function assignAllDataToSchoolYear(syId) {
+            if (currentAppUser?.role !== 'admin') {
+                showToast('Solo el administrador puede reasignar datos a un curso.');
+                return;
+            }
+            if (!allSchoolYears.some(y => y.id === syId)) {
+                showToast('El curso indicado no existe.');
+                return;
+            }
+
+            try {
+                const studentsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_students');
+                const logsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_logs');
+                const [studentsSnap, logsSnap] = await Promise.all([
+                    getDocs(studentsRef),
+                    getDocs(logsRef)
+                ]);
+
+                const studentsToMove = studentsSnap.docs.filter(d => (d.data().schoolYear || null) !== syId);
+                const logsToMove = logsSnap.docs.filter(d => (d.data().schoolYear || null) !== syId);
+                const total = studentsToMove.length + logsToMove.length;
+
+                if (total === 0) {
+                    showToast(`Todos los datos ya están asignados a ${formatSchoolYearLabel(syId)}.`);
+                    return;
+                }
+
+                const msg = `Se van a reasignar TODOS los datos al curso "${formatSchoolYearLabel(syId)}":\n\n` +
+                    `• ${studentsToMove.length} alumno(s)\n` +
+                    `• ${logsToMove.length} registro(s)\n\n` +
+                    `Esto sobrescribirá cualquier asignación previa a otro curso. No se borrarán datos, solo se reetiquetarán. ¿Continuar?`;
+
+                window.showConfirmModal(
+                    'Reasignar todos los datos',
+                    msg,
+                    async () => {
+                        try {
+                            const BATCH_SIZE = 450;
+                            const ops = [
+                                ...studentsToMove.map(d => ({ ref: d.ref, payload: { schoolYear: syId } })),
+                                ...logsToMove.map(d => ({ ref: d.ref, payload: { schoolYear: syId } }))
+                            ];
+                            const totalBatches = Math.ceil(ops.length / BATCH_SIZE);
+                            for (let i = 0; i < totalBatches; i++) {
+                                const chunk = ops.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+                                const batch = writeBatch(db);
+                                chunk.forEach(op => batch.update(op.ref, op.payload));
+                                await batch.commit();
+                                const done = Math.min((i + 1) * BATCH_SIZE, ops.length);
+                                showToast(`Progreso: ${done}/${ops.length} documentos...`);
+                            }
+                            showToast(`✓ Reasignados ${studentsToMove.length} alumnos y ${logsToMove.length} registros a ${formatSchoolYearLabel(syId)}.`);
+                            // Recargar listeners para que el snapshot refleje los cambios
+                            _reloadAllListeners();
+                        } catch (e) {
+                            console.error('Error reasignando datos:', e);
+                            showToast('Error al reasignar: ' + (e.message || e.code || 'desconocido'));
+                        }
+                    },
+                    { actionLabel: 'Reasignar todo', actionClass: 'bg-amber-600 hover:bg-amber-700' }
+                );
+            } catch (e) {
+                console.error('Error leyendo datos para reasignar:', e);
+                showToast('Error al contar los datos: ' + (e.message || e.code || 'desconocido'));
+            }
+        }
+        window.assignAllDataToSchoolYear = assignAllDataToSchoolYear;
+
+        // Suscribe un onSnapshot al documento de cursos escolares para reflejar
+        // cambios hechos desde otros dispositivos en tiempo real.
+        let _schoolYearsUnsub = null;
+        function watchSchoolYears() {
+            if (_schoolYearsUnsub) try { _schoolYearsUnsub(); } catch (e) {}
+            _schoolYearsUnsub = onSnapshot(_settingsRef(), (snap) => {
+                if (!snap.exists()) return;
+                const data = snap.data() || {};
+                const years = Array.isArray(data.years) ? data.years.filter(y => y && y.id).map(y => ({
+                    id: y.id,
+                    label: y.label || `Curso ${y.id}`,
+                    createdAt: y.createdAt || Date.now(),
+                    archived: !!y.archived
+                })) : [];
+                const prevCurrent = currentSchoolYear;
+                allSchoolYears = years;
+                const newCurrent = data.current || years[0]?.id;
+                // Si cambió el curso activo desde otro dispositivo, recargar
+                if (newCurrent && newCurrent !== prevCurrent) {
+                    currentSchoolYear = newCurrent;
+                    try { localStorage.setItem('pisaporte_current_school_year', newCurrent); } catch (e) {}
+                    _reloadAllListeners();
+                }
+                // Refrescar la UI del selector si está visible
+                _renderSchoolYearPill();
+                // Refrescar también la tabla de gestión de cursos escolares si está
+                // visible, para que los badges ACTIVO/DISPONIBLE/ARCHIVADO y las
+                // acciones (Activar/Archivar) reflejen el estado actual tras
+                // cambios hechos desde otro dispositivo o desde el selector del header.
+                if (!document.getElementById('view-schoolyears').classList.contains('hidden')) {
+                    renderSchoolYearsList();
+                }
+            }, (err) => {
+                console.warn('Error escuchando cursos escolares:', err);
+            });
+        }
+        window.watchSchoolYears = watchSchoolYears;
+
         // Flag para evitar listeners duplicados si onAuthStateChanged se dispara varias veces
         // (token refresh, recuperacion de red, etc.)
         let _listenersInitialized = false;
+        // Guardamos los unsubs de los 3 listeners para poder recargarlos al
+        // cambiar de curso escolar (no se puede hacer un simple "refilter" porque
+        // onSnapshot ya entregó todos los docs; lo más limpio es re-subscribir).
+        let _listenersUnsubs = [];
+        // Indica si estamos en medio de una recarga programática (para evitar
+        // que el flag _listenersInitialized bloquee el re-setup).
+        let _isReloading = false;
 
         function setupRealtimeListeners() {
             if (!currentUser) return;
             // Evitar duplicar listeners: si ya estan configurados, no hacer nada
-            if (_listenersInitialized) {
+            // (salvo que estemos en medio de una recarga programática).
+            if (_listenersInitialized && !_isReloading) {
                 console.log("Listeners ya configurados, evitando duplicados");
                 return;
             }
-            _listenersInitialized = true;
 
-            console.log("Configurando listeners Firestore. appId:", activeAppId);
+            // Si es una recarga, desuscribir los listeners anteriores primero
+            if (_isReloading) {
+                _listenersUnsubs.forEach(u => { try { u(); } catch (e) {} });
+                _listenersUnsubs = [];
+            } else {
+                _listenersInitialized = true;
+            }
+
+            console.log("Configurando listeners Firestore. appId:", activeAppId,
+                "curso:", currentSchoolYear || '(no cargado aún)');
             console.log("Ruta base: artifacts/" + activeAppId + "/public/data/pisaporte_*");
 
-            // Wrapper con reconexion automatica para onSnapshot
-            function watchCollection(name, ref, callback) {
-                let unsub = null;
-                let reconnectAttempts = 0;
-                const maxAttempts = 5;
+            // Asegurar que los cursos escolares están cargados antes de filtrar.
+            // Si no lo están, cargarlos (crea el curso actual si es primer arranque).
+            // Esto se hace de forma sincrónica-siempre (await) para que el filtro
+            // use el currentSchoolYear correcto desde el primer snapshot.
+            const continueSetup = () => {
+                // Wrapper con reconexion automatica para onSnapshot
+                function watchCollection(name, ref, callback) {
+                    let unsub = null;
+                    let reconnectAttempts = 0;
+                    const maxAttempts = 5;
 
-                function start() {
-                    unsub = onSnapshot(ref, (snapshot) => {
-                        reconnectAttempts = 0; // reset al recibir datos OK
-                        window.__firebaseDebug.collectionsLoaded[name] = true;
-                        window.__firebaseDebug.counts[name] = snapshot.size;
-                        console.log(`[${name}] Snapshot OK: ${snapshot.size} documentos`);
-                        callback(snapshot);
-                    }, (error) => {
-                        console.error(`Error loading ${name}:`, error.code, error.message);
-                        window.__firebaseDebug.lastErrors.push({
-                            type: 'snapshot_' + name,
-                            code: error.code,
-                            message: error.message,
-                            ts: Date.now()
+                    function start() {
+                        unsub = onSnapshot(ref, (snapshot) => {
+                            reconnectAttempts = 0; // reset al recibir datos OK
+                            window.__firebaseDebug.collectionsLoaded[name] = true;
+                            window.__firebaseDebug.counts[name] = snapshot.size;
+                            console.log(`[${name}] Snapshot OK: ${snapshot.size} documentos`);
+                            callback(snapshot);
+                        }, (error) => {
+                            console.error(`Error loading ${name}:`, error.code, error.message);
+                            window.__firebaseDebug.lastErrors.push({
+                                type: 'snapshot_' + name,
+                                code: error.code,
+                                message: error.message,
+                                ts: Date.now()
+                            });
+
+                            // Si es error de permisos, no reintentar (no se arreglara solo)
+                            if (error.code === 'permission-denied') {
+                                showToast(`Sin permisos para leer ${name}. Revisa las reglas de Firestore.`);
+                                return;
+                            }
+
+                            // Reconexion con backoff exponencial para otros errores
+                            if (reconnectAttempts < maxAttempts) {
+                                reconnectAttempts++;
+                                const delay = Math.min(30000, 2000 * Math.pow(2, reconnectAttempts - 1));
+                                console.warn(`[${name}] Reintentando en ${delay/1000}s (intento ${reconnectAttempts}/${maxAttempts})...`);
+                                setTimeout(() => {
+                                    if (unsub) try { unsub(); } catch(e) {}
+                                    start();
+                                }, delay);
+                            } else {
+                                showToast(`No se pudo sincronizar ${name} tras ${maxAttempts} intentos. Recarga la pagina.`);
+                            }
                         });
+                    }
+                    start();
+                    return () => { if (unsub) try { unsub(); } catch (e) {} };
+                }
 
-                        // Si es error de permisos, no reintentar (no se arreglara solo)
-                        if (error.code === 'permission-denied') {
-                            showToast(`Sin permisos para leer ${name}. Revisa las reglas de Firestore.`);
+                // Escuchar usuarios (sin filtrar por schoolYear: los usuarios son
+                // compartidos entre todos los cursos).
+                const usersRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_users');
+                const unsubUsers = watchCollection('users', usersRef, (snapshot) => {
+                    // Filtrar docs reservados (p. ej. '__settings_schoolYears' para
+                    // cursos escolares). Cualquier doc cuyo id empiece por '__' se
+                    // considera metadata, no un usuario real.
+                    allUsers = snapshot.docs
+                        .filter(d => !d.id.startsWith('__'))
+                        .map(doc => ({ id: doc.id, ...doc.data() }));
+                    // Recalcular el conteo de usuarios reales (excluyendo docs reservados)
+                    window.__firebaseDebug.counts.users = allUsers.length;
+                    console.log(`[users] Snapshot OK: ${allUsers.length} usuarios reales (${snapshot.size} docs totales, ${snapshot.size - allUsers.length} reservados).`);
+
+                    // Durante una recarga programática (cambio de curso escolar,
+                    // reasignación masiva, etc.) NO ejecutar lógica de arranque ni
+                    // de logout: esa lógica es solo para el primer snapshot real.
+                    // _isReloading se resetea a false al final del setup.
+                    if (_isReloading) {
+                        console.log('[users] Snapshot durante reload, saltando lógica de arranque/logout.');
+                        return;
+                    }
+
+                    if (!isAppInitialized) {
+                        // Si el snapshot es de caché local y viene vacío (0 usuarios),
+                        // NO decidir aún: esperar al snapshot del servidor. La persistencia
+                        // offline puede devolver un snapshot vacío inicial aunque el
+                        // servidor tenga datos, lo que provocaba mostrar el setup screen
+                        // innecesariamente ("configuración inicial" aunque existan usuarios).
+                        const fromCacheInitial = snapshot.metadata && snapshot.metadata.fromCache;
+                        if (fromCacheInitial && allUsers.length === 0) {
+                            console.log('[users] Snapshot inicial de caché vacío. Esperando al servidor antes de decidir setup vs login.');
                             return;
                         }
 
-                        // Reconexion con backoff exponencial para otros errores
-                        if (reconnectAttempts < maxAttempts) {
-                            reconnectAttempts++;
-                            const delay = Math.min(30000, 2000 * Math.pow(2, reconnectAttempts - 1));
-                            console.warn(`[${name}] Reintentando en ${delay/1000}s (intento ${reconnectAttempts}/${maxAttempts})...`);
-                            setTimeout(() => {
-                                if (unsub) try { unsub(); } catch(e) {}
-                                start();
-                            }, delay);
-                        } else {
-                            showToast(`No se pudo sincronizar ${name} tras ${maxAttempts} intentos. Recarga la pagina.`);
+                        hideLoading();
+                        isAppInitialized = true;
+                        // Evaluar flujo de inicio
+                        if (allUsers.length === 0) {
+                            // No hay usuarios en la ruta activa → configuración inicial
+                            showSetupAdminScreen();
+                        } else if (!currentAppUser) {
+                            showLoginScreen();
                         }
-                    });
-                }
-                start();
-            }
-
-            // Escuchar usuarios
-            const usersRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_users');
-            watchCollection('users', usersRef, (snapshot) => {
-                allUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                if (!isAppInitialized) {
-                    hideLoading();
-                    isAppInitialized = true;
-                    // Evaluar flujo de inicio
-                    if (allUsers.length === 0) {
-                        // Si no hay usuarios en la ruta activa, buscar en otras rutas conocidas
-                        scanOtherAppPaths().then(() => {
-                            if (window.__firebaseDebug.otherPaths) {
-                                const withData = window.__firebaseDebug.otherPaths.filter(p => p.users > 0 || p.students > 0);
-                                if (withData.length > 0) {
-                                    console.warn("ATENCION: Se encontraron datos en otras rutas:", withData);
-                                    showToast("Datos encontrados en otra ruta. Revisa el panel de diagnostico (boton estetoscopio).");
-                                }
+                    } else if (!currentAppUser && allUsers.length > 0) {
+                        // Si se acaba de crear el primer usuario, forzar vista de login.
+                        // También cubre el caso en que el setup screen se mostró por un
+                        // snapshot de caché vacío y luego llegó el snapshot del servidor
+                        // con usuarios: en ese caso, saltar al login.
+                        const formSetup = document.getElementById('form-setup');
+                        const formLogin = document.getElementById('form-login');
+                        const loginViewVisible = formLogin && !formLogin.classList.contains('hidden');
+                        if (formSetup && !formSetup.classList.contains('hidden')) {
+                            showLoginScreen();
+                        } else if (!loginViewVisible) {
+                            // Si el setup NO está visible pero tampoco lo está el login
+                            // (p. ej. aún en loading), asegurar que el login se muestre.
+                            showLoginScreen();
+                        }
+                    } else if (currentAppUser) {
+                        // Refrescar permisos por si se actualizó el rol en caliente.
+                        // OJO: si el snapshot está vacío o viene de la caché local
+                        // (transitorio, p. ej. tras un reload de curso), NO logout:
+                        // esperar al siguiente snapshot. Solo logout si el snapshot
+                        // viene del servidor Y tiene datos Y mi perfil realmente no
+                        // está entre ellos (me borraron).
+                        const myProfile = allUsers.find(u => u.id === currentAppUser.id);
+                        const fromCache = snapshot.metadata && snapshot.metadata.fromCache;
+                        if (!myProfile && allUsers.length > 0 && !fromCache) {
+                            console.warn('[users] Perfil propio no encontrado en snapshot del servidor con datos. Cerrando sesión.');
+                            window.logout(); // Me han borrado
+                        } else if (myProfile) {
+                            currentAppUser = myProfile;
+                            applyPermissions();
+                            if (!document.getElementById('view-users').classList.contains('hidden')) {
+                                renderUsersList();
                             }
-                            showSetupAdminScreen();
-                        }).catch(e => {
-                            console.warn('scanOtherAppPaths fallo:', e);
-                            showSetupAdminScreen();
-                        });
-                    } else if (!currentAppUser) {
-                        showLoginScreen();
-                    }
-                } else if (!currentAppUser && allUsers.length > 0) {
-                    // Si se acaba de crear el primer usuario, forzar vista de login
-                    if (!document.getElementById('form-setup').classList.contains('hidden')) {
-                        showLoginScreen();
-                    }
-                } else if (currentAppUser) {
-                    // Refrescar permisos por si se actualizó el rol en caliente
-                    const myProfile = allUsers.find(u => u.id === currentAppUser.id);
-                    if (!myProfile) {
-                        window.logout(); // Me han borrado
-                    } else {
-                        currentAppUser = myProfile;
-                        applyPermissions();
-                        if (!document.getElementById('view-users').classList.contains('hidden')) {
-                            renderUsersList();
+                        } else {
+                            // Snapshot vacío o de caché: no hacer nada, esperar al
+                            // siguiente snapshot (con datos del servidor) para decidir.
+                            console.log(`[users] Snapshot ${fromCache ? 'de caché' : 'vacío'}: esperando al siguiente antes de evaluar logout.`);
                         }
                     }
-                }
-            });
+                });
+                _listenersUnsubs.push(unsubUsers);
 
-            const studentsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_students');
-            watchCollection('students', studentsRef, (snapshot) => {
-                allStudents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                console.log(`Alumnos cargados: ${allStudents.length}. Cursos disponibles:`,
-                    [...new Set(allStudents.map(s => s.course))]);
-                updateGroupSelectors();
-                if (!document.getElementById('view-students').classList.contains('hidden')) {
-                    renderStudentsList();
-                }
-            });
+                // Escuchar alumnos (filtrando por schoolYear)
+                const studentsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_students');
+                const unsubStudents = watchCollection('students', studentsRef, (snapshot) => {
+                    // Filtrar por curso escolar activo. Los documentos legacy sin
+                    // `schoolYear` se consideran del curso actual (para no perder
+                    // datos al actualizar desde una versión anterior de la app).
+                    const sy = currentSchoolYear;
+                    allStudents = snapshot.docs
+                        .map(doc => ({ id: doc.id, ...doc.data() }))
+                        .filter(s => !s.schoolYear || s.schoolYear === sy);
+                    console.log(`Alumnos cargados: ${allStudents.length} (curso ${sy}). Cursos disponibles:`,
+                        [...new Set(allStudents.map(s => s.course))]);
+                    updateGroupSelectors();
+                    if (!document.getElementById('view-students').classList.contains('hidden')) {
+                        renderStudentsList();
+                    }
+                });
+                _listenersUnsubs.push(unsubStudents);
 
-            const logsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_logs');
-            watchCollection('logs', logsRef, (snapshot) => {
-                allLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                if (!document.getElementById('view-reports').classList.contains('hidden')) {
-                    generateReport();
-                }
-            });
+                // Escuchar logs (filtrando por schoolYear)
+                const logsRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_logs');
+                const unsubLogs = watchCollection('logs', logsRef, (snapshot) => {
+                    const sy = currentSchoolYear;
+                    allLogs = snapshot.docs
+                        .map(doc => ({ id: doc.id, ...doc.data() }))
+                        .filter(l => !l.schoolYear || l.schoolYear === sy);
+                    if (!document.getElementById('view-reports').classList.contains('hidden')) {
+                        generateReport();
+                    }
+                });
+                _listenersUnsubs.push(unsubLogs);
+
+                // Escuchar cursos escolares (settings) para reflejar cambios
+                // hechos desde otros dispositivos en tiempo real.
+                watchSchoolYears();
+                _renderSchoolYearPill();
+                _isReloading = false;
+            };
+
+            // Si los cursos escolares no están cargados todavía, cargarlos antes
+            // de continuar con el setup (para que el filtro use currentSchoolYear).
+            if (!currentSchoolYear) {
+                loadSchoolYears().then(continueSetup).catch(e => {
+                    console.error('Error cargando cursos escolares en setup:', e);
+                    continueSetup(); // Seguir aunque falle, usando fallback
+                });
+            } else {
+                continueSetup();
+            }
         }
 
-        // ================= EXPLORADOR DE RUTAS ALTERNATIVAS =================
-        // Busca datos en otros appIds conocidos para detectar si los datos estan
-        // en una ruta distinta a la activa (util si se cambio el appId en algun momento)
-        async function scanOtherAppPaths() {
-            const results = [];
-            for (const candidateId of KNOWN_APP_IDS) {
-                if (candidateId === activeAppId) {
-                    results.push({ appId: candidateId, active: true, users: window.__firebaseDebug.counts.users, students: window.__firebaseDebug.counts.students });
-                    continue;
-                }
-                try {
-                    const uSnap = await getDocs(collection(db, 'artifacts', candidateId, 'public', 'data', 'pisaporte_users'));
-                    const sSnap = await getDocs(collection(db, 'artifacts', candidateId, 'public', 'data', 'pisaporte_students'));
-                    const result = {
-                        appId: candidateId,
-                        active: false,
-                        users: uSnap.size,
-                        students: sSnap.size
-                    };
-                    results.push(result);
-                    console.log(`Escaneo ruta ${candidateId}: users=${uSnap.size}, students=${sSnap.size}`);
-                } catch (e) {
-                    console.warn(`Error escaneando ${candidateId}:`, e.code, e.message);
-                    results.push({ appId: candidateId, active: false, users: -1, students: -1, error: e.message });
-                }
-            }
-            window.__firebaseDebug.otherPaths = results;
-            return results;
+        // Recarga los 3 listeners (users/students/logs) filtrando por el curso
+        // activo actual. Se usa al cambiar de curso escolar.
+        function _reloadAllListeners() {
+            if (!currentUser) return;
+            _isReloading = true;
+            // Limpiar caches en memoria para que la UI no muestre datos del curso
+            // anterior mientras llegan los nuevos snapshots.
+            allStudents = [];
+            allLogs = [];
+            // Volver a configurar los listeners (que ahora filtrarán por el nuevo
+            // currentSchoolYear).
+            setupRealtimeListeners();
+            // Forzar refresco de la UI activa
+            if (!document.getElementById('view-students').classList.contains('hidden')) renderStudentsList();
+            if (!document.getElementById('view-reports').classList.contains('hidden')) generateReport();
+            if (!document.getElementById('view-users').classList.contains('hidden')) renderUsersList();
+            // Refrescar también la tabla de gestión de cursos escolares si está visible
+            // (sus badges ACTIVO/DISPONIBLE/ARCHIVADO dependen de currentSchoolYear).
+            if (!document.getElementById('view-schoolyears').classList.contains('hidden')) renderSchoolYearsList();
+            _renderSchoolYearPill();
         }
-        window.scanOtherAppPaths = scanOtherAppPaths;
-
-        // Cambia el appId activo y recarga la pagina para aplicar el cambio
-        window.switchAppId = async (newAppId) => {
-            if (!KNOWN_APP_IDS.includes(newAppId)) {
-                showToast("appId no valido");
-                return;
-            }
-            if (!confirm(`¿Cambiar la ruta activa a '${newAppId}'? La pagina se recargara.`)) return;
-            try {
-                localStorage.setItem('pisaporte_active_app_id', newAppId);
-            } catch (e) {}
-            window.location.reload();
-        };
+        window._reloadAllListeners = _reloadAllListeners;
 
         // ================= SISTEMA DE LOGIN (PWA) =================
         function showSetupAdminScreen() {
@@ -1105,58 +1820,72 @@
         };
 
         window.createInitialAdmin = async () => {
-            const name = document.getElementById('setup-name').value.trim();
+            const originalName = document.getElementById('setup-name').value.trim();
             const username = document.getElementById('setup-username').value.trim();
             const password = document.getElementById('setup-password').value.trim();
             const passwordConfirm = document.getElementById('setup-password-confirm').value.trim();
 
-            if (!name || !username || !password || !passwordConfirm) return showToast("Rellena todos los campos");
+            if (!originalName || !username || !password || !passwordConfirm) return showToast("Rellena todos los campos");
             if (password.length < 6) return showToast("La contraseña debe tener al menos 6 caracteres");
             if (password !== passwordConfirm) return showToast("Las contraseñas no coinciden");
             if (allUsers.some(u => u.username.toLowerCase() === username.toLowerCase())) return showToast("El nombre de usuario ya está en uso");
 
+            // Auto-normalizar al formato "Apellido1 Apellido2, Nombre".
+            // No se pide confirmación: se guarda el nombre normalizado directamente.
+            const nn = normalizeNameFormat(originalName);
+            const nameToSave = nn.changed ? nn.name : originalName;
+            await _persistAdmin(nameToSave, username, password);
+        };
+
+        // Persiste el admin inicial en Firestore y auto-inicia sesión.
+        async function _persistAdmin(name, username, password) {
             try {
                 const usersRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_users');
                 await addDoc(usersRef, { name, username, password, role: 'admin', tutorGroup: '' });
                 showToast("Administrador creado. Iniciando sesión...");
-                
-                // Cambiar a la pantalla de login, rellenar y acceder automáticamente
                 setTimeout(() => {
                     showLoginScreen();
                     document.getElementById('login-username').value = username;
                     document.getElementById('login-password').value = password;
                     processLogin();
-                }, 1000);
+                }, 1500);
             } catch (e) {
-                console.error(e);
+                console.error('Error creando admin:', e);
                 showToast("Error creando usuario.");
             }
-        };
+        }
 
         window.processRegister = async () => {
-            const name = document.getElementById('reg-name').value.trim();
+            const originalName = document.getElementById('reg-name').value.trim();
             const username = document.getElementById('reg-username').value.trim();
             const password = document.getElementById('reg-password').value.trim();
             const confirmPwd = document.getElementById('reg-password-confirm').value.trim();
 
-            if (!name || !username || !password || !confirmPwd) return showToast("Rellena todos los campos");
+            if (!originalName || !username || !password || !confirmPwd) return showToast("Rellena todos los campos");
             if (password.length < 6) return showToast("La contraseña debe tener al menos 6 caracteres");
             if (password !== confirmPwd) return showToast("Las contraseñas no coinciden");
             if (allUsers.some(u => u.username.toLowerCase() === username.toLowerCase())) return showToast("El usuario ya existe. Elige otro.");
 
+            // Auto-normalizar al formato "Apellido1 Apellido2, Nombre".
+            const nn = normalizeNameFormat(originalName);
+            const nameToSave = nn.changed ? nn.name : originalName;
+            await _persistRegister(nameToSave, username, password);
+        };
+
+        // Persiste un profesor en Firestore y auto-inicia sesión.
+        async function _persistRegister(name, username, password) {
             try {
                 const usersRef = collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_users');
                 await addDoc(usersRef, { name, username, password, role: 'profesor', tutorGroup: '' });
                 showToast("Cuenta creada. Iniciando sesión...");
-                
                 setTimeout(() => {
                     showLoginScreen();
                     document.getElementById('login-username').value = username;
                     document.getElementById('login-password').value = password;
                     processLogin();
-                }, 1000);
+                }, 1500);
             } catch (e) {
-                console.error(e);
+                console.error('Error registrando profesor:', e);
                 showToast("Error creando usuario.");
             }
         };
@@ -1187,8 +1916,17 @@
                 document.getElementById('main-nav').style.display = 'flex';
 
                 showToast(`¡Bienvenido/a, ${foundUser.name}!`);
-                applyPermissions();
-                window.switchTab('scanner');
+                // Asegurar que los cursos escolares están cargados antes de aplicar
+                // permisos (para que el selector del header se rellene correctamente).
+                const finish = () => {
+                    applyPermissions();
+                    window.switchTab('scanner');
+                };
+                if (!currentSchoolYear) {
+                    loadSchoolYears().then(finish).catch(finish);
+                } else {
+                    finish();
+                }
             } else {
                 showToast("Credenciales incorrectas.");
             }
@@ -1213,7 +1951,7 @@
             if (lu) lu.value = '';
             if (lp) lp.value = '';
             // Cerrar todos los modales abiertos
-            ['user-modal', 'student-modal', 'qr-preview-modal', 'confirm-modal', 'fb-debug-panel'].forEach(id => {
+            ['user-modal', 'student-modal', 'qr-preview-modal', 'confirm-modal'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
@@ -1230,10 +1968,26 @@
             document.getElementById('nav-btn-admin')?.classList.toggle('hidden', role !== 'admin');
             document.getElementById('nav-btn-users').classList.toggle('hidden', role !== 'admin');
             document.getElementById('nav-btn-students').classList.toggle('hidden', role === 'profesor'); // Prof no ve alumnos
-            
-            // Informes Tab Actions
+            document.getElementById('nav-btn-reports').classList.toggle('hidden', role === 'profesor'); // Prof no ve informes
+
+            // Pill del curso escolar en el header: visible para todos los roles,
+            // pero el icono de engranaje (indica que es clicable) solo para admin.
+            // Tutor/profesor la ven como informativa (no pueden cambiar de curso).
+            const syPill = document.getElementById('school-year-pill');
+            const syPillGear = document.getElementById('school-year-pill-gear');
+            if (syPill) {
+                syPill.classList.remove('hidden');
+                syPill.classList.add('flex');
+            }
+            if (syPillGear) {
+                syPillGear.classList.toggle('hidden', role !== 'admin');
+            }
+            _renderSchoolYearPill();
+
+            // Informes Tab Actions (relevantes solo si la pestaña es visible)
             document.getElementById('btn-print-reports').classList.toggle('hidden', role === 'profesor'); // Prof no PDF
-            document.getElementById('btn-delete-logs').classList.toggle('hidden', role !== 'admin'); // Solo Admin borra logs
+            document.getElementById('btn-print-timeslots')?.classList.toggle('hidden', role === 'profesor'); // Prof no PDF (boton propio de la pestana Por Tramos)
+            document.getElementById('btn-delete-logs').classList.toggle('hidden', role !== 'admin'); // Solo Admin borra log
 
             const reportGroupSelect = document.getElementById('report-group');
             if (role === 'tutor') {
@@ -1254,16 +2008,28 @@
 
         // ================= CONTROL DE VISTAS (TABS) =================
         window.switchTab = (tabId) => {
+            // Restriccion de acceso por rol: el perfil "profesor" no puede entrar a Informes.
+            // Aunque el boton este oculto, esta guarda previene accesos programaticos.
+            if (tabId === 'reports' && currentAppUser?.role === 'profesor') {
+                showToast('No tienes permiso para acceder a Informes.');
+                return switchTab('scanner');
+            }
+            // La gestión de cursos escolares es exclusiva del admin
+            if (tabId === 'schoolyears' && currentAppUser?.role !== 'admin') {
+                showToast('Solo el administrador puede gestionar los cursos escolares.');
+                return switchTab('scanner');
+            }
+
             document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
             
-            const tabs = ['scanner', 'students', 'reports', 'users'];
+            const tabs = ['scanner', 'students', 'reports', 'users', 'schoolyears'];
             tabs.forEach(t => {
                 const btn = document.getElementById(`nav-btn-${t}`);
                 if(btn) {
                     btn.classList.remove('text-blue-600');
                     btn.classList.add('text-gray-400');
-                    btn.querySelector('.nav-bg').classList.remove('bg-blue-50');
-                    btn.querySelector('span').classList.remove('font-bold');
+                    btn.querySelector('.nav-bg')?.classList.remove('bg-blue-50');
+                    btn.querySelector('span')?.classList.remove('font-bold');
                 }
             });
 
@@ -1272,8 +2038,8 @@
             if(activeBtn) {
                 activeBtn.classList.remove('text-gray-400');
                 activeBtn.classList.add('text-blue-600');
-                activeBtn.querySelector('.nav-bg').classList.add('bg-blue-50');
-                activeBtn.querySelector('span').classList.add('font-bold');
+                activeBtn.querySelector('.nav-bg')?.classList.add('bg-blue-50');
+                activeBtn.querySelector('span')?.classList.add('font-bold');
             }
 
             if (tabId === 'scanner') {
@@ -1297,6 +2063,111 @@
             if (tabId === 'students') renderStudentsList();
             if (tabId === 'reports') generateReport();
             if (tabId === 'users') renderUsersList();
+            if (tabId === 'schoolyears') renderSchoolYearsList();
+        };
+
+        // ================= CURSOS ESCOLARES: UI =================
+        // Actualiza la pill del header con el curso activo. Si el usuario es admin,
+        // la pill es clicable (lleva a la vista de gestión de cursos); si no, es
+        // puramente informativa. La lógica de clic está en onSchoolYearPillClick.
+        function _renderSchoolYearPill() {
+            const label = document.getElementById('school-year-pill-label');
+            if (!label) return;
+            if (!currentSchoolYear) {
+                label.textContent = '—';
+                return;
+            }
+            label.textContent = formatSchoolYearLabel(currentSchoolYear);
+        }
+
+        // Handler del clic en la pill del header. Solo el admin navega a la vista
+        // de gestión; tutor/profesor no hacen nada (la pill es informativa).
+        // OJO: debe exponerse en window porque el onclick del HTML se ejecuta en
+        // scope global y no ve las variables locales del módulo (currentAppUser).
+        window.onSchoolYearPillClick = () => {
+            if (currentAppUser?.role !== 'admin') return;
+            window.switchTab('schoolyears');
+        };
+
+        // Handler del botón "Añadir" en la vista de gestión de cursos.
+        window.onAddSchoolYearClick = async () => {
+            const input = document.getElementById('schoolyears-new-input');
+            const syId = (input.value || '').trim();
+            if (!syId) { showToast('Introduce un curso (p. ej. 2026/2027)'); return; }
+            const ok = await addSchoolYear(syId);
+            if (ok) {
+                input.value = '';
+                renderSchoolYearsList();
+            }
+        };
+
+        // Activa un curso directamente desde la vista de gestión (botón "Activar").
+        window.activateSchoolYear = (syId) => {
+            if (currentAppUser?.role !== 'admin') {
+                showToast('Solo el administrador puede cambiar de curso.');
+                return;
+            }
+            if (syId === currentSchoolYear) {
+                showToast('Ese curso ya es el activo');
+                return;
+            }
+            setCurrentSchoolYear(syId).then(() => renderSchoolYearsList());
+        };
+
+        // Marca/desmarca un curso como archivado.
+        window.onToggleArchiveSchoolYear = (syId) => {
+            if (currentAppUser?.role !== 'admin') {
+                showToast('Solo el administrador puede archivar cursos.');
+                return;
+            }
+            toggleArchiveSchoolYear(syId).then(() => renderSchoolYearsList());
+        };
+
+        // Renderiza la tabla de la vista de gestión de cursos.
+        window.renderSchoolYearsList = () => {
+            const tbody = document.getElementById('schoolyears-table-body');
+            const activeLabel = document.getElementById('schoolyears-active-label');
+            if (!tbody) return;
+            if (activeLabel) {
+                activeLabel.textContent = currentSchoolYear ? formatSchoolYearLabel(currentSchoolYear) : '—';
+            }
+            if (!allSchoolYears || allSchoolYears.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="p-3 text-center text-gray-400 text-xs">No hay cursos definidos.</td></tr>';
+                return;
+            }
+            const sorted = [...allSchoolYears].sort((a, b) => b.id.localeCompare(a.id)); // Más recientes primero
+            tbody.innerHTML = sorted.map(y => {
+                const isActive = y.id === currentSchoolYear;
+                const isFuture = isFutureSchoolYear(y.id);
+                const stateBadge = isActive
+                    ? '<span class="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">ACTIVO</span>'
+                    : (y.archived
+                        ? '<span class="text-[10px] font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded">ARCHIVADO</span>'
+                        : '<span class="text-[10px] font-bold bg-green-50 text-green-700 px-2 py-0.5 rounded">DISPONIBLE</span>');
+                const activateBtn = isActive
+                    ? '<span class="text-[11px] text-gray-400 italic">en uso</span>'
+                    : `<button onclick="activateSchoolYear('${y.id}')" class="text-[11px] bg-blue-50 text-blue-700 px-2 py-1 rounded font-semibold hover:bg-blue-100 transition-colors">Activar</button>`;
+                const archiveBtn = isActive
+                    ? ''
+                    : `<button onclick="onToggleArchiveSchoolYear('${y.id}')" class="text-[11px] bg-gray-50 text-gray-600 px-2 py-1 rounded font-semibold hover:bg-gray-100 transition-colors">${y.archived ? 'Desarchivar' : 'Archivar'}</button>`;
+                const reassignBtn = `<button onclick="assignAllDataToSchoolYear('${y.id}')" class="text-[11px] bg-amber-50 text-amber-700 px-2 py-1 rounded font-semibold hover:bg-amber-100 transition-colors" title="Mover TODOS los alumnos y registros (de cualquier curso o sin curso) a este curso"><i class="fa-solid fa-box-archive"></i> Reasignar todo aquí</button>`;
+                // Eliminar: solo cursos futuros que no sean el activo. Los pasados
+                // o el actual no muestran el botón (no son eliminables). Los futuros
+                // se pueden eliminar aunque tengan datos (se borrarán en cascada).
+                const deleteBtn = (isFuture && !isActive)
+                    ? `<button onclick="deleteSchoolYear('${y.id}')" class="text-[11px] bg-red-50 text-red-700 px-2 py-1 rounded font-semibold hover:bg-red-100 transition-colors" title="Eliminar este curso futuro. Si tiene datos asociados, también se borrarán en cascada."><i class="fa-solid fa-trash-can"></i> Eliminar</button>`
+                    : '';
+                return `<tr>
+                    <td class="p-2">
+                        <div class="font-semibold text-gray-800">${y.label}</div>
+                        ${y.createdAt ? `<div class="text-[10px] text-gray-400">Creado: ${new Date(y.createdAt).toLocaleDateString('es-ES')}</div>` : ''}
+                    </td>
+                    <td class="p-2 text-center">${stateBadge}</td>
+                    <td class="p-2 text-right">
+                        <div class="flex flex-wrap gap-1 justify-end">${activateBtn}${archiveBtn}${reassignBtn}${deleteBtn}</div>
+                    </td>
+                </tr>`;
+            }).join('');
         };
 
         // ================= GESTIÓN DE USUARIOS (ADMIN) =================
@@ -1380,45 +2251,73 @@
 
         window.closeUserModal = () => document.getElementById('user-modal').style.display = 'none';
 
-        window.saveUserModal = async () => {
-            const id = document.getElementById('modal-user-id').value;
-            const name = document.getElementById('modal-user-name').value.trim();
-            const username = document.getElementById('modal-user-username').value.trim();
-            const password = document.getElementById('modal-user-password').value.trim();
-            const confirmPwd = document.getElementById('modal-user-password-confirm').value.trim();
-            const role = document.getElementById('modal-user-role').value;
-            let tutorGroup = document.getElementById('modal-user-group').value.trim();
-
-            if (!name || !username || !password || !confirmPwd) return showToast("Faltan datos por rellenar");
+        // Persiste un usuario en Firestore con los datos dados.
+        // Si normalizedName es distinto de originalName, muestra un toast con
+        // opción "Deshacer" que revierte el nombre al original.
+        async function _persistUser(id, originalName, normalizedName, username, password, role, tutorGroupRaw) {
+            const nameToSave = normalizedName || originalName;
             if (password.length < 6) return showToast("La contraseña debe tener al menos 6 caracteres");
-            if (password !== confirmPwd) return showToast("Las contraseñas no coinciden");
-            if (role === 'tutor' && !tutorGroup) return showToast("Indica el grupo del tutor");
-
-            tutorGroup = formatGroupNameForFile(tutorGroup); // Normalizar
-
-            const userData = { name, username, password, role, tutorGroup: role === 'tutor' ? tutorGroup : '' };
-
+            const tutorGroup = role === 'tutor' ? formatGroupNameForFile(tutorGroupRaw) : '';
+            if (role === 'tutor' && !tutorGroupRaw) return showToast("Indica el grupo del tutor");
+            const userData = { name: nameToSave, username, password, role, tutorGroup };
             try {
+                let savedDocRef = null;
                 if (id) {
-                    // Validar duplicado excluyendo a sí mismo
                     if (allUsers.some(u => u.username.toLowerCase() === username.toLowerCase() && u.id !== id)) {
                         return showToast("El usuario ya existe");
                     }
                     await updateDoc(doc(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_users', id), userData);
-                    showToast("Usuario actualizado");
                 } else {
-                    // Validar duplicado al crear
                     if (allUsers.some(u => u.username.toLowerCase() === username.toLowerCase())) {
                         return showToast("El usuario ya existe");
                     }
-                    await addDoc(collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_users'), userData);
-                    showToast("Usuario creado");
+                    savedDocRef = await addDoc(collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_users'), userData);
                 }
+                // Cerrar el modal del usuario INMEDIATAMENTE tras el guardado exitoso
                 closeUserModal();
+                // Si el nombre fue normalizado, ofrecer deshacer via toast
+                if (normalizedName && normalizedName !== originalName) {
+                    const undoRef = savedDocRef || doc(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_users', id);
+                    showToastWithAction(
+                        `Nombre reordenado: "${originalName}" → "${normalizedName}"`,
+                        'Deshacer',
+                        async () => {
+                            try {
+                                await updateDoc(undoRef, { name: originalName });
+                                showToast("Nombre restaurado al original.");
+                            } catch (e) {
+                                console.error('Error al deshacer normalización:', e);
+                                showToast("Error al deshacer.");
+                            }
+                        }
+                    );
+                } else {
+                    showToast(id ? "Usuario actualizado" : "Usuario creado");
+                }
             } catch (e) {
-                console.error(e);
+                console.error('Error guardando usuario:', e);
                 showToast("Error guardando usuario");
             }
+        }
+
+        window.saveUserModal = async () => {
+            const id = document.getElementById('modal-user-id').value;
+            const originalName = document.getElementById('modal-user-name').value.trim();
+            const username = document.getElementById('modal-user-username').value.trim();
+            const password = document.getElementById('modal-user-password').value.trim();
+            const confirmPwd = document.getElementById('modal-user-password-confirm').value.trim();
+            const role = document.getElementById('modal-user-role').value;
+            const tutorGroup = document.getElementById('modal-user-group').value.trim();
+
+            if (!originalName || !username || !password || !confirmPwd) return showToast("Faltan datos por rellenar");
+            if (password !== confirmPwd) return showToast("Las contraseñas no coinciden");
+
+            // Auto-normalizar al formato "Apellido1 Apellido2, Nombre".
+            // No se pide confirmación: se guarda el nombre normalizado y se
+            // ofrece "Deshacer" via toast si la heurística cambió algo.
+            const nn = normalizeNameFormat(originalName);
+            const normalizedName = nn.changed ? nn.name : null;
+            await _persistUser(id, originalName, normalizedName, username, password, role, tutorGroup);
         };
 
         window.confirmDeleteUser = (id, name) => {
@@ -1431,12 +2330,27 @@
         };
 
         // ================= GESTIÓN INDIVIDUAL DE ALUMNOS =================
-        window.openAddStudentModal = () => {
-            const courseInput = document.getElementById('modal-student-course');
+        // Resetea el modal del alumno a su estado "Añadir" (sin ID, campos vacíos
+        // salvo el curso pre-rellenado, título y botón en modo "Añadir").
+        function _resetStudentModalToAdd() {
+            document.getElementById('modal-student-id').value = '';
             document.getElementById('modal-student-name').value = '';
+            document.getElementById('student-modal-title').textContent = 'Añadir Alumno';
+            const submitBtn = document.getElementById('student-modal-submit-btn');
+            submitBtn.textContent = 'Añadir';
+            submitBtn.className = 'px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors';
+        }
+
+        window.openAddStudentModal = () => {
+            _resetStudentModalToAdd();
+            const courseInput = document.getElementById('modal-student-course');
             
             if (currentAppUser.role === 'tutor') {
-                courseInput.value = currentAppUser.tutorGroup;
+                // Normalizar el grupo del tutor para que coincida con la forma
+                // canonical usada al guardar alumnos (formatGroupNameForFile).
+                // Esto evita que un tutor con tutorGroup="1ºA" (sin espacio) añada
+                // alumnos que luego no aparecen en su lista porque se guardan como "1º A".
+                courseInput.value = formatGroupNameForFile(currentAppUser.tutorGroup || '');
                 courseInput.disabled = true;
             } else {
                 const f = document.getElementById('group-filter').value;
@@ -1446,31 +2360,137 @@
             document.getElementById('student-modal').style.display = 'flex';
         };
 
+        // Abre el modal del alumno en modo "Editar": rellena los campos con los
+        // datos actuales del alumno y cambia el título/botón a "Guardar cambios".
+        // El tutor solo puede editar alumnos de su propio grupo; si intenta editar
+        // uno de otro grupo, se bloquea.
+        window.openEditStudentModal = (studentId) => {
+            const s = allStudents.find(x => x.id === studentId);
+            if (!s) { showToast('Alumno no encontrado.'); return; }
+            // Verificar permisos: el tutor solo edita alumnos de su grupo
+            if (currentAppUser.role === 'tutor') {
+                const tutorGroupNorm = formatGroupNameForFile(currentAppUser.tutorGroup || '');
+                const studentGroupNorm = formatGroupNameForFile(s.course || '');
+                if (tutorGroupNorm !== studentGroupNorm) {
+                    showToast('Solo puedes editar alumnos de tu grupo.');
+                    return;
+                }
+            }
+            // Resetea primero a modo "Añadir" para partir de un estado limpio
+            _resetStudentModalToAdd();
+            // Rellenar con datos del alumno
+            document.getElementById('modal-student-id').value = s.id;
+            document.getElementById('modal-student-name').value = s.name || '';
+            document.getElementById('modal-student-course').value = s.course || '';
+            // El tutor no puede cambiar el grupo del alumno (debe seguir siendo el suyo)
+            document.getElementById('modal-student-course').disabled = (currentAppUser.role === 'tutor');
+            // Cambiar título y botón a modo edición
+            document.getElementById('student-modal-title').textContent = 'Editar Alumno';
+            const submitBtn = document.getElementById('student-modal-submit-btn');
+            submitBtn.textContent = 'Guardar cambios';
+            submitBtn.className = 'px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors';
+            document.getElementById('student-modal').style.display = 'flex';
+        };
+
         window.closeStudentModal = () => document.getElementById('student-modal').style.display = 'none';
 
-        window.saveStudentModal = async () => {
-            let name = document.getElementById('modal-student-name').value.trim();
-            let course = document.getElementById('modal-student-course').value.trim();
-
-            if (!name || !course) return showToast("Rellena nombre y grupo.");
-
-            course = formatGroupNameForFile(course); // Normaliza (Ej: 1º ESO A -> 1ºA)
-
-            // Comprobar duplicados normalizando tambien el curso del alumno existente
-            // (por si en la BD hay cursos sin normalizar como "1º A" en vez de "1ºA")
-            if (allStudents.some(s => s.name === name && formatGroupNameForFile(s.course) === course)) {
+        // Crea un alumno nuevo en Firestore.
+        // Si normalizedName es distinto de originalName, muestra un toast con
+        // opción "Deshacer" que revierte el nombre al original.
+        async function _createStudent(originalName, normalizedName, course) {
+            const nameToSave = normalizedName || originalName;
+            course = formatGroupNameForFile(course);
+            // Comprobar duplicados normalizando también el curso del alumno existente
+            if (allStudents.some(s => s.name === nameToSave && formatGroupNameForFile(s.course) === course)) {
                 return showToast("El alumno ya existe en esa clase.");
             }
-
             try {
-                await addDoc(collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_students'), {
-                    name, course, importedAt: Date.now()
+                const docRef = await addDoc(collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_students'), {
+                    name: nameToSave, course, importedAt: Date.now(),
+                    schoolYear: currentSchoolYear || getCurrentSchoolYear()
                 });
-                showToast("Alumno añadido correctamente");
+                // Cerrar el modal del alumno INMEDIATAMENTE tras el guardado exitoso
                 closeStudentModal();
+                // Si el nombre fue normalizado, ofrecer deshacer via toast
+                if (normalizedName && normalizedName !== originalName) {
+                    showToastWithAction(
+                        `Nombre reordenado: "${originalName}" → "${normalizedName}"`,
+                        'Deshacer',
+                        async () => {
+                            try {
+                                await updateDoc(docRef, { name: originalName });
+                                showToast("Nombre restaurado al original.");
+                            } catch (e) {
+                                console.error('Error al deshacer normalización:', e);
+                                showToast("Error al deshacer.");
+                            }
+                        }
+                    );
+                } else {
+                    showToast("Alumno añadido correctamente");
+                }
             } catch (e) {
-                console.error(e);
+                console.error('Error al añadir alumno:', e);
                 showToast("Error al añadir alumno.");
+            }
+        }
+
+        // Actualiza un alumno existente en Firestore. No permite moverlo a un
+        // grupo/curso que ya tenga otro alumno con el mismo nombre (duplicado).
+        // Si normalizedName es distinto de originalName, ofrece "Deshacer".
+        async function _updateStudent(studentId, originalName, normalizedName, course) {
+            const nameToSave = normalizedName || originalName;
+            course = formatGroupNameForFile(course);
+            // Comprobar duplicados excluyendo al propio alumno que se edita
+            if (allStudents.some(s => s.id !== studentId && s.name === nameToSave && formatGroupNameForFile(s.course) === course)) {
+                return showToast("Ya existe otro alumno con ese nombre en esa clase.");
+            }
+            try {
+                const studentRef = doc(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_students', studentId);
+                await updateDoc(studentRef, { name: nameToSave, course });
+                // Cerrar el modal del alumno INMEDIATAMENTE tras la actualización
+                closeStudentModal();
+                // Si el nombre fue normalizado, ofrecer deshacer via toast
+                if (normalizedName && normalizedName !== originalName) {
+                    showToastWithAction(
+                        `Nombre reordenado: "${originalName}" → "${normalizedName}"`,
+                        'Deshacer',
+                        async () => {
+                            try {
+                                await updateDoc(studentRef, { name: originalName });
+                                showToast("Nombre restaurado al original.");
+                            } catch (e) {
+                                console.error('Error al deshacer normalización:', e);
+                                showToast("Error al deshacer.");
+                            }
+                        }
+                    );
+                } else {
+                    showToast("Alumno actualizado correctamente");
+                }
+            } catch (e) {
+                console.error('Error al actualizar alumno:', e);
+                showToast("Error al actualizar alumno.");
+            }
+        }
+
+        window.saveStudentModal = async () => {
+            const editId = document.getElementById('modal-student-id').value;
+            const originalName = document.getElementById('modal-student-name').value.trim();
+            const course = document.getElementById('modal-student-course').value.trim();
+            if (!originalName || !course) return showToast("Rellena nombre y grupo.");
+
+            // Auto-normalizar al formato "Apellido1 Apellido2, Nombre".
+            // No se pide confirmación: se guarda el nombre normalizado y se
+            // ofrece "Deshacer" via toast si la heurística cambió algo.
+            const nn = normalizeNameFormat(originalName);
+            const normalizedName = nn.changed ? nn.name : null;
+
+            // Si hay ID → modo edición; si no → modo creación.
+            if (editId) {
+                await _updateStudent(editId, originalName, normalizedName, course);
+            } else {
+                await _createStudent(originalName, normalizedName, course);
             }
         };
 
@@ -1874,7 +2894,10 @@
                     // Franja horaria escolar asignada
                     timeSlotId: slot.id,
                     timeSlotLabel: slot.label,
-                    timeSlotRandom: slot.isRandom
+                    timeSlotRandom: slot.isRandom,
+                    // Curso escolar al que pertenece el registro (para aislar datos
+                    // entre cursos). Se calcula por la fecha actual.
+                    schoolYear: currentSchoolYear || computeSchoolYearForDate(now)
                 });
                 showToast("Acción registrada");
                 window.cancelAction();
@@ -1957,7 +2980,9 @@
                                 if (!exists) {
                                     try {
                                         await addDoc(collection(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_students'), {
-                                            name, course, importedAt: Date.now()
+                                            name, course, importedAt: Date.now(),
+                                            // Curso escolar activo (para aislar datos entre cursos)
+                                            schoolYear: currentSchoolYear || getCurrentSchoolYear()
                                         });
                                         // Actualizar cache local para que las siguientes filas no se dupliquen
                                         allStudents.push({ id: 'temp_' + Date.now() + '_' + Math.random(), name, course, importedAt: Date.now() });
@@ -2012,6 +3037,9 @@
                 updateUserSelector();
                 renderUnitsButtons();
                 updateStudentSelectorForSelectedUnits();
+                // Pestana Tramos: bloquear a su grupo
+                updateTimeSlotGroupSelector();
+                updateTimeSlotStudentSelector();
                 return;
             }
 
@@ -2036,6 +3064,9 @@
             renderUnitsButtons();
             // Sincronizar selector de alumnos con botonera
             updateStudentSelectorForSelectedUnits();
+            // Pestana Tramos: refrescar dropdown de unidades y selector de alumnos
+            updateTimeSlotGroupSelector();
+            updateTimeSlotStudentSelector();
         }
 
         // Cache de listas completas para el filtro de busqueda
@@ -2050,7 +3081,9 @@
             const currentVal = sel.value;
             let students = allStudents;
             if (groupFilter && groupFilter !== 'ALL') {
-                students = students.filter(s => s.course === groupFilter);
+                // Normalizar ambos lados para que variantes del mismo grupo coincidan
+                const normFilter = formatGroupNameForFile(groupFilter);
+                students = students.filter(s => formatGroupNameForFile(s.course) === normFilter);
             }
             students = [...students].sort((a, b) => a.name.localeCompare(b.name));
             // Guardar cache para el buscador
@@ -2294,6 +3327,168 @@
         }
         window.getSelectedUnitsForFilter = getSelectedUnitsForFilter;
 
+        // ================= SELECCIÓN DE TRAMOS HORARIOS (pestaña Por Tramos) =================
+        // Estado de la seleccion multiple de tramos horarios (paralelo a _selectedUnits)
+        // Por defecto: ningun tramo preseleccionado (usuario debe elegir)
+        let _selectedTimeSlots = new Set();
+        let _timeSlotsButtonsInitialized = false;
+        let _allTimeSlotsForReport = []; // cache de alumnos filtrables
+
+        // Construye la botonera de tramos horarios usando SCHOOL_TIME_SLOTS
+        function initTimeSlotsButtonsIfNeeded() {
+            const container = document.getElementById('report-ts-slots-buttons');
+            if (!container) return;
+            if (_timeSlotsButtonsInitialized) {
+                // Ya construida: solo refrescar visual
+                updateTimeSlotsButtonsVisual();
+                return;
+            }
+            container.innerHTML = '';
+            SCHOOL_TIME_SLOTS.forEach(slot => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.slotId = slot.id;
+                btn.className = 'ts-btn text-xs px-3 py-1.5 rounded-lg border transition-colors';
+                btn.innerHTML = `${slot.label} <span class="opacity-60 text-[10px]">${slot.start}-${slot.end}</span>`;
+                btn.onclick = () => toggleTimeSlot(slot.id);
+                container.appendChild(btn);
+            });
+            _timeSlotsButtonsInitialized = true;
+            updateTimeSlotsButtonsVisual();
+        }
+
+        // Devuelve la lista de IDs de tramos seleccionados.
+        //   null  = (no aplica, siempre es un array)
+        //   []    = ningun tramo (filtrar todo a vacio)
+        //   [...] = lista de tramos concretos
+        function getSelectedTimeSlotsForFilter() {
+            return [..._selectedTimeSlots];
+        }
+        window.getSelectedTimeSlotsForFilter = getSelectedTimeSlotsForFilter;
+
+        // Alterna la seleccion de un tramo
+        window.toggleTimeSlot = (slotId) => {
+            if (_selectedTimeSlots.has(slotId)) {
+                _selectedTimeSlots.delete(slotId);
+            } else {
+                _selectedTimeSlots.add(slotId);
+            }
+            updateTimeSlotsButtonsVisual();
+            generateReport();
+        };
+
+        // Selecciona todos o ningun tramo
+        window.selectAllTimeSlots = (selectAll) => {
+            if (selectAll) {
+                _selectedTimeSlots = new Set(SCHOOL_TIME_SLOTS.map(s => s.id));
+            } else {
+                _selectedTimeSlots = new Set();
+            }
+            updateTimeSlotsButtonsVisual();
+            generateReport();
+        };
+
+        // Actualiza el estilo visual de los botones de tramos segun el estado
+        function updateTimeSlotsButtonsVisual() {
+            const buttons = document.querySelectorAll('#report-ts-slots-buttons .ts-btn');
+            buttons.forEach(btn => {
+                const slotId = btn.dataset.slotId;
+                const isSelected = _selectedTimeSlots.has(slotId);
+                btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600',
+                    'bg-white', 'text-gray-500', 'border-gray-300', 'hover:bg-gray-50');
+                if (isSelected) {
+                    btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+                } else {
+                    btn.classList.add('bg-white', 'text-gray-500', 'border-gray-300', 'hover:bg-gray-50');
+                }
+            });
+        }
+
+        // Rellena el selector de alumnos de la pestana Tramos segun la unidad elegida
+        function updateTimeSlotStudentSelector() {
+            const sel = document.getElementById('report-ts-student');
+            const searchInput = document.getElementById('report-ts-student-search');
+            if (!sel) return;
+            const currentVal = sel.value;
+            const prevSearch = searchInput ? searchInput.value : '';
+
+            // Filtrar por unidad del dropdown de la pestana Tramos
+            const groupFilter = document.getElementById('report-ts-group');
+            const groupVal = groupFilter ? groupFilter.value : 'ALL';
+
+            // Para tutores: forzar su grupo
+            let effectiveGroup = groupVal;
+            if (currentAppUser && currentAppUser.role === 'tutor') {
+                effectiveGroup = currentAppUser.tutorGroup || '(sin grupo)';
+            }
+
+            let students = allStudents;
+            if (effectiveGroup !== 'ALL') {
+                // Normalizar ambos lados para que variantes del mismo grupo coincidan
+                const normGroup = formatGroupNameForFile(effectiveGroup);
+                students = students.filter(s => formatGroupNameForFile(s.course) === normGroup);
+            }
+            students = [...students].sort((a, b) => a.name.localeCompare(b.name));
+            _allTimeSlotsForReport = students;
+
+            // Texto de la opcion "todos"
+            let allLabel;
+            if (effectiveGroup === 'ALL') {
+                allLabel = 'Todos los alumnos (todas las unidades)';
+            } else {
+                allLabel = `Toda la unidad (${effectiveGroup})`;
+            }
+
+            // Aplicar filtro de buscador si hay texto
+            const search = (prevSearch || '').toLowerCase().trim();
+            const filtered = search
+                ? students.filter(s => (s.name || '').toLowerCase().includes(search))
+                : students;
+
+            let html = `<option value="ALL">${allLabel}</option>`;
+            filtered.forEach(s => {
+                html += `<option value="${s.id}">${s.name} (${s.course})</option>`;
+            });
+            sel.innerHTML = html;
+            // Restaurar seleccion previa si sigue siendo valida
+            if ([...sel.options].some(o => o.value === currentVal)) {
+                sel.value = currentVal;
+            }
+        }
+        window.updateTimeSlotStudentSelector = updateTimeSlotStudentSelector;
+
+        // Filtra el selector de alumnos de Tramos al escribir en el buscador
+        window.filterTimeSlotStudentSelect = () => {
+            updateTimeSlotStudentSelector();
+        };
+
+        // Rellena el dropdown de unidades de la pestana Tramos (paralelo a updateGroupSelectors)
+        function updateTimeSlotGroupSelector() {
+            const sel = document.getElementById('report-ts-group');
+            if (!sel) return;
+            const currentVal = sel.value;
+            if (currentAppUser && currentAppUser.role === 'tutor') {
+                const tg = currentAppUser.tutorGroup || '(sin grupo)';
+                sel.innerHTML = `<option value="${tg}">${tg}</option>`;
+                sel.disabled = true;
+            } else {
+                // Lista de unidades unicas ordenadas
+                const groups = [...new Set(allStudents.map(s => s.course))].sort((a, b) =>
+                    String(a).localeCompare(String(b), 'es', { numeric: true })
+                );
+                let html = `<option value="ALL">Todas las unidades</option>`;
+                groups.forEach(g => {
+                    html += `<option value="${g}">${g}</option>`;
+                });
+                sel.innerHTML = html;
+                sel.disabled = false;
+                if ([...sel.options].some(o => o.value === currentVal)) {
+                    sel.value = currentVal;
+                }
+            }
+        }
+        window.updateTimeSlotGroupSelector = updateTimeSlotGroupSelector;
+
         // Rellena el selector de alumnos segun las unidades seleccionadas
         function updateStudentSelectorForSelectedUnits() {
             const sel = document.getElementById('report-student');
@@ -2352,28 +3547,56 @@
             currentReportTab = tabId;
             const tabStudents = document.getElementById('report-tab-students');
             const tabUsers = document.getElementById('report-tab-users');
+            const tabTimeSlots = document.getElementById('report-tab-timeslots');
             const btnStudents = document.getElementById('tab-btn-students');
             const btnUsers = document.getElementById('tab-btn-users');
+            const btnTimeSlots = document.getElementById('tab-btn-timeslots');
             const groupWrapper = document.getElementById('report-group-wrapper');
+            const filtersCard = document.getElementById('report-filters-card');
+
+            // Helper: ocultar todas las pestañas y desactivar todos los botones
+            const hideAllTabs = () => {
+                [tabStudents, tabUsers, tabTimeSlots].forEach(t => t && t.classList.add('hidden'));
+                [btnStudents, btnUsers, btnTimeSlots].forEach(b => {
+                    if (!b) return;
+                    b.classList.remove('text-blue-600', 'bg-blue-50', 'border-blue-600');
+                    b.classList.add('text-gray-500', 'bg-white', 'border-transparent');
+                });
+            };
+            const activateTab = (tab, btn) => {
+                if (tab) tab.classList.remove('hidden');
+                if (btn) {
+                    btn.classList.add('text-blue-600', 'bg-blue-50', 'border-blue-600');
+                    btn.classList.remove('text-gray-500', 'bg-white', 'border-transparent');
+                }
+            };
+
+            hideAllTabs();
 
             if (tabId === 'students') {
-                tabStudents.classList.remove('hidden');
-                tabUsers.classList.add('hidden');
-                btnStudents.classList.add('text-blue-600', 'bg-blue-50', 'border-blue-600');
-                btnStudents.classList.remove('text-gray-500', 'bg-white', 'border-transparent');
-                btnUsers.classList.remove('text-blue-600', 'bg-blue-50', 'border-blue-600');
-                btnUsers.classList.add('text-gray-500', 'bg-white', 'border-transparent');
+                activateTab(tabStudents, btnStudents);
                 // En Alumnado: ocultar dropdown de Unidad (se usa la botonera)
                 if (groupWrapper) groupWrapper.classList.add('hidden');
-            } else {
-                tabUsers.classList.remove('hidden');
-                tabStudents.classList.add('hidden');
-                btnUsers.classList.add('text-blue-600', 'bg-blue-50', 'border-blue-600');
-                btnUsers.classList.remove('text-gray-500', 'bg-white', 'border-transparent');
-                btnStudents.classList.remove('text-blue-600', 'bg-blue-50', 'border-blue-600');
-                btnStudents.classList.add('text-gray-500', 'bg-white', 'border-transparent');
+                if (filtersCard) filtersCard.classList.remove('hidden');
+            } else if (tabId === 'users') {
+                activateTab(tabUsers, btnUsers);
                 // En Usuarios: mostrar dropdown de Unidad (no hay botonera)
                 if (groupWrapper) groupWrapper.classList.remove('hidden');
+                if (filtersCard) filtersCard.classList.remove('hidden');
+            } else if (tabId === 'timeslots') {
+                activateTab(tabTimeSlots, btnTimeSlots);
+                // En Tramos: la pestaña tiene sus propios filtros (dia, unidad, tramos).
+                // Ocultar la tarjeta de filtros comun para evitar confusión.
+                if (filtersCard) filtersCard.classList.add('hidden');
+                // Asegurar que la botonera de tramos esté inicializada
+                initTimeSlotsButtonsIfNeeded();
+                // Asegurar que el selector de alumno de la pestaña esté actualizado
+                updateTimeSlotStudentSelector();
+                // Asegurar que la fecha por defecto sea hoy si está vacía
+                const dateInput = document.getElementById('report-ts-date');
+                if (dateInput && !dateInput.value) {
+                    dateInput.value = getLocalTodayString();
+                }
             }
             generateReport();
         };
@@ -2387,7 +3610,10 @@
             
             let filtered = allStudents;
             if (filter !== "ALL") {
-                filtered = allStudents.filter(s => s.course === filter);
+                // Normalizar ambos lados de la comparacion para que variantes como
+                // "1ºA", "1º A", "1º ESO A" coincidan entre si.
+                const normFilter = formatGroupNameForFile(filter);
+                filtered = allStudents.filter(s => formatGroupNameForFile(s.course) === normFilter);
                 if(currentAppUser.role === 'admin') btnDeleteGroup.classList.remove('hidden');
             } else {
                 btnDeleteGroup.classList.add('hidden');
@@ -2419,7 +3645,10 @@
                             <button onclick="showQRPreview('${safeId}', '${safeName}')" class="text-blue-500 hover:text-blue-700 transition-colors p-2" title="Ver QR en pantalla">
                                 <i class="fa-solid fa-qrcode"></i>
                             </button>
-                            <button onclick="confirmDeleteStudent('${safeId}', '${safeName}')" class="text-red-400 hover:text-red-600 transition-colors p-2"><i class="fa-solid fa-trash-can"></i></button>
+                            <button onclick="openEditStudentModal('${safeId}')" class="text-amber-500 hover:text-amber-700 transition-colors p-2" title="Editar alumno">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onclick="confirmDeleteStudent('${safeId}', '${safeName}')" class="text-red-400 hover:text-red-600 transition-colors p-2" title="Eliminar alumno"><i class="fa-solid fa-trash-can"></i></button>
                         </div>
                     </li>
                 `;
@@ -2451,7 +3680,11 @@
         window.printQRCards = () => {
             const filter = document.getElementById('group-filter').value;
             let studentsToPrint = allStudents;
-            if (filter !== "ALL") studentsToPrint = allStudents.filter(s => s.course === filter);
+            if (filter !== "ALL") {
+                // Normalizar ambos lados para que variantes del mismo grupo coincidan
+                const normFilter = formatGroupNameForFile(filter);
+                studentsToPrint = allStudents.filter(s => formatGroupNameForFile(s.course) === normFilter);
+            }
             if (studentsToPrint.length === 0) return showToast("No hay alumnos.");
 
             const printArea = document.getElementById('print-area');
@@ -2691,14 +3924,77 @@
 
         // ================= ELIMINACIÓN GENERAL =================
         let confirmActionCallback = null;
-        window.showConfirmModal = (title, msg, callback) => {
+        let confirmCancelCallback = null;
+        // Valores por defecto del botón de acción del modal de confirmación.
+        // Se restauran en closeConfirmModal() para que las llamadas que NO pasen
+        // opts sigan viendo el botón rojo con texto "Eliminar".
+        const _confirmBtnDefault = { label: 'Eliminar', cls: 'bg-red-600 hover:bg-red-700' };
+        window.showConfirmModal = (title, msg, callback, opts) => {
             document.getElementById('confirm-title').textContent = title;
             document.getElementById('confirm-message').textContent = msg;
             confirmActionCallback = callback;
+            confirmCancelCallback = (opts && typeof opts.onCancel === 'function') ? opts.onCancel : null;
+            // Personalizar botón de acción si se pasa opts (p. ej. "Continuar" verde)
+            const btn = document.getElementById('confirm-action-btn');
+            const label = (opts && opts.actionLabel) || _confirmBtnDefault.label;
+            const cls = (opts && opts.actionClass) || _confirmBtnDefault.cls;
+            btn.textContent = label;
+            btn.className = `px-4 py-2 ${cls} text-white rounded-lg text-sm font-medium transition-colors`;
             document.getElementById('confirm-modal').style.display = 'flex';
         };
-        window.closeConfirmModal = () => { document.getElementById('confirm-modal').style.display = 'none'; confirmActionCallback = null; };
-        document.getElementById('confirm-action-btn').addEventListener('click', () => { if (confirmActionCallback) confirmActionCallback(); window.closeConfirmModal(); });
+        // closeConfirmModal acepta un flag `fromCancel` para distinguir si el cierre
+        // viene del botón Cancelar (y entonces ejecutar onCancel) o de la acción
+        // principal (no ejecutar onCancel para no duplicar).
+        window.closeConfirmModal = (fromCancel) => {
+            document.getElementById('confirm-modal').style.display = 'none';
+            const cb = confirmCancelCallback;
+            confirmActionCallback = null;
+            confirmCancelCallback = null;
+            // Restaurar el botón a sus valores por defecto para la próxima llamada
+            const btn = document.getElementById('confirm-action-btn');
+            btn.textContent = _confirmBtnDefault.label;
+            btn.className = `px-4 py-2 ${_confirmBtnDefault.cls} text-white rounded-lg text-sm font-medium transition-colors`;
+            // Ejecutar onCancel solo si el cierre viene del botón Cancelar
+            if (fromCancel && cb) {
+                try {
+                    const result = cb();
+                    if (result && typeof result.catch === 'function') {
+                        result.catch(e => console.error('Confirm onCancel async error:', e));
+                    }
+                } catch (e) { console.error('Confirm onCancel error:', e); }
+            }
+        };
+        // Botón "Acción" (Continuar/Eliminar): PRIMERO cierra el modal de confirmación
+        // y DESPUÉS ejecuta el callback. Esto garantiza que el modal se cierre siempre,
+        // incluso si el callback lanza o devuelve una promesa que se rechaza.
+        document.getElementById('confirm-action-btn').addEventListener('click', () => {
+            const cb = confirmActionCallback;
+            window.closeConfirmModal(false);
+            if (cb) {
+                try {
+                    const result = cb();
+                    if (result && typeof result.catch === 'function') {
+                        result.catch(e => console.error('Confirm action async error:', e));
+                    }
+                } catch (e) {
+                    console.error('Confirm action callback error:', e);
+                }
+            }
+        });
+        // Botón "Cancelar": cierra con onCancel
+        document.getElementById('confirm-cancel-btn').addEventListener('click', () => window.closeConfirmModal(true));
+
+        // Helper para el caso específico de confirmación de normalización de nombre.
+        // Muestra un modal pidiendo al usuario que acepte o cancele el reordenamiento.
+        // onConfirm() se ejecuta si pulsa "Continuar"; onCancel() si pulsa "Cancelar".
+        window.confirmNameNormalization = (original, normalized, onConfirm, onCancel) => {
+            window.showConfirmModal(
+                'Reordenar nombre',
+                `El nombre se guardará reordenado:\n"${original}" → "${normalized}"\n\nSi el orden es incorrecto (porque la heurística no acierta con tu nombre compuesto), pulsa "Cancelar" y se guardará tal cual lo escribiste.`,
+                onConfirm,
+                { actionLabel: 'Continuar', actionClass: 'bg-green-600 hover:bg-green-700', onCancel }
+            );
+        };
 
         window.confirmDeleteStudent = (id, name) => {
             window.showConfirmModal('Eliminar Alumno', `¿Eliminar a ${name}?`, async () => {
@@ -2710,10 +4006,13 @@
         window.confirmDeleteGroup = () => {
             const group = document.getElementById('group-filter').value;
             if (group === 'ALL') return;
-            const count = allStudents.filter(s => s.course === group).length;
+            // Normalizar ambos lados para contar/eliminar correctamente
+            const normGroup = formatGroupNameForFile(group);
+            const matchGroup = (s) => formatGroupNameForFile(s.course) === normGroup;
+            const count = allStudents.filter(matchGroup).length;
             window.showConfirmModal('Eliminar Grupo', `¿Eliminar los ${count} alumnos de ${group}?`, async () => {
                 try {
-                    const studentsToDelete = allStudents.filter(s => s.course === group);
+                    const studentsToDelete = allStudents.filter(matchGroup);
                     for (const s of studentsToDelete) await deleteDoc(doc(db, 'artifacts', activeAppId, 'public', 'data', 'pisaporte_students', s.id));
                     showToast(`Grupo ${group} eliminado.`);
                     document.getElementById('group-filter').value = 'ALL';
@@ -2747,6 +4046,13 @@
         // ================= INFORMES =================
         window.generateReport = () => {
             if(!currentAppUser) return;
+
+            // La pestana "Por Tramos" tiene su propio flujo de filtros (dia, tramos, alumno)
+            // y no comparte el periodo / unidad comunes. La rutamos a su propia funcion.
+            if (currentReportTab === 'timeslots') {
+                return generateTimeSlotReport();
+            }
+
             const timeFilter = document.getElementById('report-time').value;
             const groupFilter = document.getElementById('report-group').value;
             const studentFilter = document.getElementById('report-student') ?
@@ -2772,13 +4078,19 @@
                     if (units.length === 0) {
                         filteredLogs = []; // Ninguna unidad: ningun log
                     } else {
-                        filteredLogs = filteredLogs.filter(l => units.includes(l.course));
+                        // Normalizar ambos lados para que variantes del mismo grupo coincidan
+                        const normUnits = units.map(u => formatGroupNameForFile(u));
+                        filteredLogs = filteredLogs.filter(l => normUnits.includes(formatGroupNameForFile(l.course)));
                     }
                 }
                 // Si units === null, no filtrar (todas las unidades)
             } else {
                 // Pestaña Usuarios: usar dropdown de Unidad
-                if (groupFilter !== 'ALL') filteredLogs = filteredLogs.filter(l => l.course === groupFilter);
+                if (groupFilter !== 'ALL') {
+                    // Normalizar ambos lados para que variantes del mismo grupo coincidan
+                    const normGroup = formatGroupNameForFile(groupFilter);
+                    filteredLogs = filteredLogs.filter(l => formatGroupNameForFile(l.course) === normGroup);
+                }
             }
 
             window.currentFilteredLogs = filteredLogs;
@@ -2981,6 +4293,181 @@
             }
         };
 
+        // ================= INFORME POR TRAMOS HORARIOS =================
+        // Genera el informe de la pestana "Por Tramos": lista todas las salidas al
+        // servicio que ocurrieron en un dia concreto, en los tramos horarios
+        // seleccionados (por defecto: Recreo -> 6ª hora), opcionalmente filtradas
+        // por unidad y/o alumno concreto.
+        //
+        // Estructura del log (relevante):
+        //   { studentId, studentName, course, timestamp, dateString (YYYY-MM-DD),
+        //     requested, authorized, userId, userName, timeSlotId, timeSlotLabel }
+        //
+        // Soporte legacy: si un log antiguo no tiene timeSlotId, se le recalcula
+        // a partir del timestamp via getSchoolTimeSlot().
+        function generateTimeSlotReport() {
+            const dateInput = document.getElementById('report-ts-date');
+            const groupSelect = document.getElementById('report-ts-group');
+            const studentSelect = document.getElementById('report-ts-student');
+            const authFilterSelect = document.getElementById('report-ts-auth-filter');
+
+            const dateStr = dateInput ? dateInput.value : '';
+            const groupFilter = groupSelect ? groupSelect.value : 'ALL';
+            const studentFilter = studentSelect ? studentSelect.value : 'ALL';
+            const authFilter = authFilterSelect ? authFilterSelect.value : 'ALL';
+            const selectedSlots = getSelectedTimeSlotsForFilter(); // array de ids
+
+            // Si no hay fecha, no hay informe
+            if (!dateStr) {
+                document.getElementById('stat-ts-total').textContent = '0';
+                document.getElementById('stat-ts-auth').textContent = '0';
+                document.getElementById('stat-ts-denied').textContent = '0';
+                document.getElementById('stat-ts-unique-students').textContent = '0';
+                document.getElementById('report-ts-table-body').innerHTML = '';
+                document.getElementById('report-ts-empty').classList.remove('hidden');
+                window.currentFilteredLogs = [];
+                return;
+            }
+
+            // Filtrar logs del dia seleccionado
+            let filtered = allLogs.filter(l => l.dateString === dateStr);
+
+            // Filtrar por unidad (respeta tutor: solo su grupo)
+            let effectiveGroup = groupFilter;
+            if (currentAppUser && currentAppUser.role === 'tutor') {
+                effectiveGroup = currentAppUser.tutorGroup || '(sin grupo)';
+            }
+            if (effectiveGroup && effectiveGroup !== 'ALL') {
+                // Normalizar ambos lados para que variantes del mismo grupo coincidan
+                const normGroup = formatGroupNameForFile(effectiveGroup);
+                filtered = filtered.filter(l => formatGroupNameForFile(l.course) === normGroup);
+            }
+
+            // Filtrar por alumno concreto (opcional)
+            if (studentFilter && studentFilter !== 'ALL') {
+                filtered = filtered.filter(l => l.studentId === studentFilter);
+            }
+
+            // Filtrar por tramos horarios seleccionados.
+            // Soporte legacy: si el log no tiene timeSlotId, se recalcula.
+            // Optimizacion: si selectedSlots esta vacio, no hay resultados.
+            if (selectedSlots.length === 0) {
+                filtered = [];
+            } else {
+                filtered = filtered.filter(l => {
+                    let slotId = l.timeSlotId;
+                    if (!slotId) {
+                        // Legacy: recalcular desde timestamp
+                        slotId = getSchoolTimeSlot(l.timestamp).id;
+                    }
+                    return selectedSlots.includes(slotId);
+                });
+            }
+
+            // Filtrar por estado de autorizacion (paso 5).
+            //   ALL          -> todas las salidas (sin filtro)
+            //   authorized   -> solo salidas con requested=true y authorized=true
+            //   denied       -> solo salidas con requested=true y authorized=false
+            //   notrequested -> solo salidas con requested=false (no solicito)
+            if (authFilter === 'authorized') {
+                filtered = filtered.filter(l => l.requested && l.authorized);
+            } else if (authFilter === 'denied') {
+                filtered = filtered.filter(l => l.requested && !l.authorized);
+            } else if (authFilter === 'notrequested') {
+                filtered = filtered.filter(l => !l.requested);
+            }
+
+            // Guardar para que printReport() y confirmDeleteLogs() puedan reutilizarlos
+            window.currentFilteredLogs = filtered;
+            // Guardar tambien los metadatos del informe para printReport
+            window.__timeSlotReportMeta = {
+                dateStr,
+                groupFilter: effectiveGroup,
+                studentFilter,
+                authFilter,
+                selectedSlots
+            };
+
+            // ============ STATS ============
+            const reqLogs = filtered.filter(l => l.requested);
+            const authLogs = reqLogs.filter(l => l.authorized);
+            const denLogs = reqLogs.filter(l => !l.authorized);
+            // Alumnos unicos que salieron (cualquier registro, autorizado o no)
+            const uniqueStudentIds = new Set(filtered.map(l => l.studentId));
+
+            document.getElementById('stat-ts-total').textContent = filtered.length;
+            document.getElementById('stat-ts-auth').textContent = authLogs.length;
+            document.getElementById('stat-ts-denied').textContent = denLogs.length;
+            document.getElementById('stat-ts-unique-students').textContent = uniqueStudentIds.size;
+
+            // ============ TABLA ============
+            const tbody = document.getElementById('report-ts-table-body');
+            const emptyDiv = document.getElementById('report-ts-empty');
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                emptyDiv.classList.remove('hidden');
+                return;
+            }
+            emptyDiv.classList.add('hidden');
+
+            // Ordenar por tramo (orden SCHOOL_TIME_SLOTS) y luego por hora
+            const slotOrder = {};
+            SCHOOL_TIME_SLOTS.forEach((s, i) => { slotOrder[s.id] = i; });
+            const getSlotOrder = (l) => {
+                let slotId = l.timeSlotId;
+                if (!slotId) slotId = getSchoolTimeSlot(l.timestamp).id;
+                return slotOrder[slotId] != null ? slotOrder[slotId] : 99;
+            };
+            const escapeHtml = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+            const sorted = [...filtered].sort((a, b) => {
+                const so = getSlotOrder(a) - getSlotOrder(b);
+                if (so !== 0) return so;
+                return (a.timestamp || 0) - (b.timestamp || 0);
+            });
+
+            sorted.forEach(l => {
+                // Resolver etiqueta del tramo
+                let slotId = l.timeSlotId;
+                let slotLabel = l.timeSlotLabel;
+                if (!slotId) {
+                    const s = getSchoolTimeSlot(l.timestamp);
+                    slotId = s.id;
+                    slotLabel = s.label;
+                }
+                // Si el slotId no esta en SCHOOL_TIME_SLOTS (datos corruptos), usar la etiqueta guardada
+                const slotObj = SCHOOL_TIME_SLOTS.find(s => s.id === slotId);
+                const slotText = slotObj ? `${slotObj.label} (${slotObj.start}-${slotObj.end})` : (slotLabel || slotId || '?');
+
+                const d = new Date(l.timestamp);
+                const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+                let statusHtml;
+                if (!l.requested) {
+                    statusHtml = '<span class="text-gray-500">No solicitó</span>';
+                } else if (l.authorized) {
+                    statusHtml = '<span class="text-green-700 font-bold">Autorizada</span>';
+                } else {
+                    statusHtml = '<span class="text-red-700 font-bold">Denegada</span>';
+                }
+
+                const userHtml = l.userName ? `<span class="text-gray-500 text-xs">${escapeHtml(l.userName)}</span>` : '<span class="text-gray-300 text-xs italic">—</span>';
+
+                tbody.insertAdjacentHTML('beforeend', `
+                    <tr class="hover:bg-gray-50">
+                        <td class="p-3 font-medium text-gray-800">${escapeHtml(l.studentName || 'Alumno desconocido')}</td>
+                        <td class="p-3 text-gray-600">${escapeHtml(l.course || '-')}</td>
+                        <td class="p-3 text-gray-700">${escapeHtml(slotText)}</td>
+                        <td class="p-3 text-gray-500 whitespace-nowrap">${timeStr}</td>
+                        <td class="p-3">${statusHtml}</td>
+                        <td class="p-3">${userHtml}</td>
+                    </tr>
+                `);
+            });
+        }
+        window.generateTimeSlotReport = generateTimeSlotReport;
+
         window.printReport = () => {
             if (!window.currentFilteredLogs || window.currentFilteredLogs.length === 0) return showToast("No hay datos.");
             const printArea = document.getElementById('print-area');
@@ -2988,6 +4475,11 @@
 
             // Escape HTML para evitar inyeccion en el PDF
             const escapeHtml = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+            // ============ PESTAÑA TRAMOS HORARIOS (PDF propio) ============
+            if (currentReportTab === 'timeslots') {
+                return printTimeSlotReport(printArea, escapeHtml);
+            }
 
             const timeFilterText = document.getElementById('report-time').options[document.getElementById('report-time').selectedIndex].text;
             const groupFilter = document.getElementById('report-group').value;
@@ -3197,8 +4689,40 @@
             content.innerHTML = contentHtml;
             printArea.appendChild(content);
 
+            // ============ NOMBRE DE PDF DESCRIPTIVO SEGUN CONTENIDO ============
+            // Sanitiza texto para usarlo en nombre de archivo (sin caracteres problematicos)
+            const sanitizeForFile = (str) => String(str || '')
+                .replace(/[\\/:*?"<>|]/g, '-')
+                .replace(/\s+/g, '_')
+                .replace(/_+/g, '_')
+                .replace(/^_|_$/g, '');
+            const periodPart = sanitizeForFile(timeFilterText); // Ej: "Hoy", "Esta_semana"...
+            let fileName;
+            if (currentReportTab === 'students') {
+                const units = getSelectedUnitsForFilter();
+                let unitsPart;
+                if (units === null) unitsPart = 'TodasUnidades';
+                else if (units.length === 0) unitsPart = 'NingunaUnidad';
+                else unitsPart = sanitizeForFile(units.map(u => formatGroupNameForFile(u)).join('-'));
+                let studentPart = '';
+                if (studentFilter && studentFilter !== 'ALL') {
+                    const s = allStudents.find(x => x.id === studentFilter);
+                    studentPart = '_' + sanitizeForFile(s ? s.name : 'Alumno');
+                }
+                fileName = `Informe_Alumnado_${periodPart}_${unitsPart}${studentPart}`;
+            } else {
+                // Pestana Usuarios
+                const groupPart = (groupFilter === 'ALL') ? 'TodasUnidades' : sanitizeForFile(formatGroupNameForFile(groupFilter));
+                let userPart = '';
+                if (userFilter && userFilter !== 'ALL') {
+                    const u = allUsers.find(x => x.id === userFilter);
+                    userPart = '_' + sanitizeForFile(u ? u.name : 'Usuario');
+                }
+                fileName = `Informe_Usuarios_${periodPart}_${groupPart}${userPart}`;
+            }
+
             const originalTitle = document.title;
-            document.title = `Informe_PisaporteV2_${formatGroupNameForFile(groupFilter)}_${timeFilterText.replace(/\s+/g, '')}`;
+            document.title = fileName;
             // Usar afterprint para limpiar el area cuando el dialogo de impresion se cierra
             const cleanupReportAfterPrint = () => {
                 document.title = originalTitle;
@@ -3221,6 +4745,208 @@
                 }
             }, 500);
         };
+
+        // ================= PDF: INFORME POR TRAMOS HORARIOS =================
+        // Construye el HTML de impresion para la pestana "Por Tramos".
+        // Layout: titulo + subtitulo (dia / unidad / tramos / alumno) + stats
+        // (salidas, autorizadas, denegadas, alumnos unicos) + tabla detallada
+        // con una fila por cada salida al servicio.
+        function printTimeSlotReport(printArea, escapeHtml) {
+            const meta = window.__timeSlotReportMeta || {};
+            const filteredLogs = window.currentFilteredLogs || [];
+
+            // Formatear fecha para mostrar (YYYY-MM-DD -> dd/mm/YYYY)
+            const formatDate = (str) => {
+                if (!str) return '?';
+                const parts = String(str).split('-');
+                if (parts.length !== 3) return str;
+                return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            };
+
+            // Construir subtitulo
+            const subtitleParts = [];
+            subtitleParts.push(`Día: ${escapeHtml(formatDate(meta.dateStr))}`);
+            subtitleParts.push(`Unidad: ${!meta.groupFilter || meta.groupFilter === 'ALL' ? 'Todas' : escapeHtml(meta.groupFilter)}`);
+            // Tramos seleccionados (ordenados segun SCHOOL_TIME_SLOTS)
+            const slots = (meta.selectedSlots || []).map(id => {
+                const s = SCHOOL_TIME_SLOTS.find(x => x.id === id);
+                return s ? s.label : id;
+            });
+            subtitleParts.push(`Tramos: ${slots.length > 0 ? escapeHtml(slots.join(', ')) : 'Ninguno'}`);
+            if (meta.studentFilter && meta.studentFilter !== 'ALL') {
+                const s = allStudents.find(x => x.id === meta.studentFilter);
+                subtitleParts.push(`Alumno: ${s ? escapeHtml(s.name) : 'desconocido'}`);
+            }
+            // Estado de autorizacion (paso 5)
+            const authLabels = {
+                ALL: 'Todas',
+                authorized: 'Solo autorizadas',
+                denied: 'Solo denegadas',
+                notrequested: 'Solo «no solicitó»'
+            };
+            const authLabel = authLabels[meta.authFilter] || 'Todas';
+            subtitleParts.push(`Autorización: ${escapeHtml(authLabel)}`);
+            const subtitle = subtitleParts.join(' | ');
+
+            // Construir nombre de archivo descriptivo (sin caracteres problematicos)
+            // Ej: Informe_Tramos_20260815_1A_Recreo-4-5-6_Autorizadas.pdf
+            const sanitize = (str) => String(str || '')
+                .replace(/[\\/:*?"<>|]/g, '-')
+                .replace(/\s+/g, '_')
+                .replace(/_+/g, '_')
+                .replace(/^_|_$/g, '');
+            const datePart = (meta.dateStr || 'sinfecha').replace(/-/g, '');
+            const groupPart = (!meta.groupFilter || meta.groupFilter === 'ALL')
+                ? 'Todas' : sanitize(formatGroupNameForFile(meta.groupFilter));
+            const slotsPart = slots.length > 0 ? sanitize(slots.join('-')) : 'SinTramos';
+            let studentPart = 'Todos';
+            if (meta.studentFilter && meta.studentFilter !== 'ALL') {
+                const s = allStudents.find(x => x.id === meta.studentFilter);
+                studentPart = s ? sanitize(s.name) : 'Alumno';
+            }
+            const authFilePart = {
+                ALL: 'Todas',
+                authorized: 'Autorizadas',
+                denied: 'Denegadas',
+                notrequested: 'NoSolicito'
+            }[meta.authFilter] || 'Todas';
+            const fileName = `Informe_Tramos_${datePart}_${groupPart}_${slotsPart}_${studentPart}_${authFilePart}`;
+
+            // CSS autocontenido (similar al de printReport pero con clases .rts-*)
+            const style = document.createElement('style');
+            style.innerHTML = `
+                @page { size: A4; margin: 1.5cm; }
+                #print-area { position: static !important; top: auto !important; left: auto !important; width: 100% !important; display: block !important; background: white !important; }
+                .rts-header { text-align: center; margin-bottom: 20px; font-family: sans-serif; }
+                .rts-title { font-size: 24px; font-weight: bold; margin-bottom: 5px; color: #1f2937; }
+                .rts-subtitle { font-size: 13px; color: #4b5563; margin-bottom: 20px; }
+                .rts-stats { display: flex; justify-content: center; gap: 12px; margin-bottom: 24px; font-family: sans-serif; flex-wrap: wrap; }
+                .rts-stat-box { border: 1px solid #e5e7eb; padding: 12px 20px; border-radius: 8px; text-align: center; flex: 1; min-width: 120px; max-width: 180px; }
+                .rts-stat-label { font-size: 11px; text-transform: uppercase; font-weight: bold; color: #6b7280; }
+                .rts-stat-value { font-size: 26px; font-weight: 900; margin-top: 4px; }
+                .rts-stat-total .rts-stat-value { color: #2563eb; }
+                .rts-stat-auth .rts-stat-value { color: #16a34a; }
+                .rts-stat-denied .rts-stat-value { color: #dc2626; }
+                .rts-stat-unique .rts-stat-value { color: #d97706; }
+                .rts-section-title { font-size: 16px; font-weight: bold; color: #1f2937; margin-top: 10px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 2px solid #1f2937; font-family: sans-serif; }
+                .rts-table { width: 100%; border-collapse: collapse; font-family: sans-serif; margin-bottom: 20px; }
+                .rts-table th { background-color: #f9fafb; padding: 8px; border-bottom: 2px solid #e5e7eb; text-align: left; font-size: 11px; text-transform: uppercase; color: #4b5563; }
+                .rts-table td { padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #1f2937; }
+                .rts-status-auth { color: #15803d; font-weight: bold; }
+                .rts-status-den { color: #b91c1c; font-weight: bold; }
+                .rts-status-none { color: #6b7280; }
+                .rts-sub { color: #6b7280; font-size: 11px; }
+            `;
+            printArea.appendChild(style);
+
+            // Recalcular stats desde los logs
+            const reqLogs = filteredLogs.filter(l => l.requested);
+            const authLogs = reqLogs.filter(l => l.authorized);
+            const denLogs = reqLogs.filter(l => !l.authorized);
+            const uniqueStudentIds = new Set(filteredLogs.map(l => l.studentId));
+
+            // Ordenar logs por tramo (orden escolar) y luego por hora
+            const slotOrder = {};
+            SCHOOL_TIME_SLOTS.forEach((s, i) => { slotOrder[s.id] = i; });
+            const getSlotOrder = (l) => {
+                let slotId = l.timeSlotId;
+                if (!slotId) slotId = getSchoolTimeSlot(l.timestamp).id;
+                return slotOrder[slotId] != null ? slotOrder[slotId] : 99;
+            };
+            const sorted = [...filteredLogs].sort((a, b) => {
+                const so = getSlotOrder(a) - getSlotOrder(b);
+                if (so !== 0) return so;
+                return (a.timestamp || 0) - (b.timestamp || 0);
+            });
+
+            let contentHtml = `
+                <div class="rts-header">
+                    <div class="rts-title">Informe por Tramos Horarios</div>
+                    <div class="rts-subtitle">${subtitle}</div>
+                </div>
+                <div class="rts-stats">
+                    <div class="rts-stat-box rts-stat-total"><div class="rts-stat-label">Salidas</div><div class="rts-stat-value">${filteredLogs.length}</div></div>
+                    <div class="rts-stat-box rts-stat-auth"><div class="rts-stat-label">Autorizadas</div><div class="rts-stat-value">${authLogs.length}</div></div>
+                    <div class="rts-stat-box rts-stat-denied"><div class="rts-stat-label">Denegadas</div><div class="rts-stat-value">${denLogs.length}</div></div>
+                    <div class="rts-stat-box rts-stat-unique"><div class="rts-stat-label">Alumnado único</div><div class="rts-stat-value">${uniqueStudentIds.size}</div></div>
+                </div>
+                <div class="rts-section-title">Listado de salidas al servicio</div>
+                <table class="rts-table">
+                    <thead>
+                        <tr>
+                            <th>Alumno</th>
+                            <th>Unidad</th>
+                            <th>Tramo</th>
+                            <th>Hora</th>
+                            <th>Estado</th>
+                            <th>Por</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            sorted.forEach(l => {
+                let slotId = l.timeSlotId;
+                let slotLabel = l.timeSlotLabel;
+                if (!slotId) {
+                    const s = getSchoolTimeSlot(l.timestamp);
+                    slotId = s.id;
+                    slotLabel = s.label;
+                }
+                const slotObj = SCHOOL_TIME_SLOTS.find(s => s.id === slotId);
+                const slotText = slotObj ? `${slotObj.label} (${slotObj.start}-${slotObj.end})` : (slotLabel || slotId || '?');
+
+                const d = new Date(l.timestamp);
+                const timeStr = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+                let statusHtml;
+                if (!l.requested) {
+                    statusHtml = '<span class="rts-status-none">No solicitó</span>';
+                } else if (l.authorized) {
+                    statusHtml = '<span class="rts-status-auth">Autorizada</span>';
+                } else {
+                    statusHtml = '<span class="rts-status-den">Denegada</span>';
+                }
+                const userHtml = l.userName ? escapeHtml(l.userName) : '—';
+
+                contentHtml += `<tr>
+                    <td>${escapeHtml(l.studentName || 'Alumno desconocido')}</td>
+                    <td>${escapeHtml(l.course || '-')}</td>
+                    <td>${escapeHtml(slotText)}</td>
+                    <td>${timeStr}</td>
+                    <td>${statusHtml}</td>
+                    <td><span class="rts-sub">${userHtml}</span></td>
+                </tr>`;
+            });
+            contentHtml += `</tbody></table>`;
+
+            const content = document.createElement('div');
+            content.innerHTML = contentHtml;
+            printArea.appendChild(content);
+
+            // Imprimir con el mismo mecanismo que printReport (iframe para móvil)
+            const originalTitle = document.title;
+            document.title = fileName;
+
+            const cleanupAfterPrint = () => {
+                document.title = originalTitle;
+                printArea.innerHTML = '';
+                window.removeEventListener('afterprint', cleanupAfterPrint);
+            };
+            window.addEventListener('afterprint', cleanupAfterPrint);
+            setTimeout(() => {
+                if (printArea.innerHTML !== '') cleanupAfterPrint();
+            }, 6000);
+            setTimeout(() => {
+                try {
+                    printViaIframe();
+                } catch (e) {
+                    console.error('printViaIframe fallo, intentando window.print:', e);
+                    try { window.print(); } catch(e2) {}
+                    cleanupAfterPrint();
+                }
+            }, 500);
+        }
+        window.printTimeSlotReport = printTimeSlotReport;
 
         // ================= UTILIDADES =================
 
@@ -3290,6 +5016,151 @@
             return canvas;
         }
         window.renderQRToCanvas = renderQRToCanvas;
+
+        // Normaliza un nombre propio al formato académico "Apellido1 Apellido2, Nombre".
+        // - Si el texto ya contiene coma, se considera canónico y se devuelve tal cual
+        //   (solo se limpian espacios alrededor de la coma).
+        // - Si no tiene coma, se asume el orden natural hispano "Nombre Apellido1 Apellido2"
+        //   y se reordena a "Apellido1 Apellido2, Nombre".
+        //   · 1 token   → se devuelve tal cual
+        //   · 2 tokens  → "Nombre Apellido"          → "Apellido, Nombre"
+        //   · 3 tokens  → "Nombre Apellido1 Apellido2" → "Apellido1 Apellido2, Nombre"
+        //   · 4 tokens  → "Nombre1 Nombre2 Apellido1 Apellido2" → "Apellido1 Apellido2, Nombre1 Nombre2"
+        //   · 5+ tokens → se devuelve tal cual (demasiado ambiguo para arriesgar)
+        // "Token" aquí significa palabra simple o nombre compuesto conocido
+        // (María José, Juan Carlos, María del Carmen, etc.) — ver más abajo.
+        // Devuelve { name, changed } para que el llamador pueda avisar al usuario.
+
+        // Quita acentos y pasa a minúsculas para comparar de forma robusta
+        // (MARÍA JOSÉ == María José == maria jose == MARIA JOSE).
+        function _normalizeForCompare(s) {
+            return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        }
+
+        // Nombres compuestos frecuentes en español. Se comparan sin acentos y en
+        // minúsculas para tolerar variantes del usuario. Se tokenizan en pares,
+        // tríos y cuádruples (de mayor a menor especificidad).
+        const _COMPOUND_PAIRS = new Set([
+            // María + X
+            'maria jose', 'maria carmen', 'maria teresa', 'maria luisa',
+            'maria pilar', 'maria angeles', 'maria dolores', 'maria rosario', 'maria isabel',
+            'maria elena', 'maria cristina', 'maria antonia', 'maria concepcion', 'maria mercedes',
+            'maria eugenia', 'maria jesus',
+            // José + X
+            'jose luis', 'jose manuel', 'jose antonio', 'jose maria', 'jose miguel',
+            'jose carlos', 'jose angel', 'jose ramon', 'jose francisco',
+            'jose alberto', 'jose javier',
+            // Juan + X
+            'juan carlos', 'juan jose', 'juan manuel', 'juan francisco', 'juan miguel',
+            'juan antonio', 'juan pablo', 'juan jesus', 'juan luis', 'juan alberto',
+            'juan bautista', 'juan ignacio', 'juan vicente', 'juan fernando',
+            // Luis + X
+            'luis miguel', 'luis alberto', 'luis fernando', 'luis manuel', 'luis antonio',
+            'luis carlos', 'luis jose', 'luis maria', 'luis angel',
+            // Ana + X
+            'ana maria', 'ana isabel', 'ana belen', 'ana cristina', 'ana elena',
+            'ana teresa', 'ana rosa', 'ana luisa', 'ana pilar',
+            // Antonio + X
+            'antonio jose', 'antonio manuel', 'antonio jesus',
+            'antonio miguel', 'antonio carlos', 'antonio angel',
+            // Francisco + X
+            'francisco javier', 'francisco jose', 'francisco manuel',
+            'francisco jesus', 'francisco miguel', 'francisco antonio',
+            // Manuel + X
+            'manuel jesus', 'manuel jose', 'manuel antonio',
+            'manuel angel', 'manuel francisco',
+            // Miguel + X
+            'miguel angel', 'miguel jose', 'miguel antonio',
+            'miguel francisco', 'miguel manuel',
+            // Jesús + X
+            'jesus maria', 'jesus angel', 'jesus manuel',
+            // Carlos + X
+            'carlos alberto', 'carlos eduardo', 'carlos manuel', 'carlos antonio', 'carlos javier',
+            // Pedro + X
+            'pedro jose', 'pedro antonio', 'pedro manuel', 'pedro miguel',
+            // Otros
+            'carmen maria', 'lucia maria', 'rosa maria', 'cristina maria', 'elena maria',
+            'pablo martin', 'diego fernando', 'diego alejandro',
+            'luz maria', 'juana maria',
+        ]);
+        const _COMPOUND_TRIPLES = new Set([
+            // Advocaciones marianas usadas como nombre propio (3 palabras)
+            'maria del carmen', 'maria del rosario', 'maria del pilar',
+            'maria del mar', 'maria de la luz', 'maria de la o',
+            'jose de la cruz',
+        ]);
+        const _COMPOUND_QUADRUPLES = new Set([
+            // Advocaciones marianas con "de los" (4 palabras)
+            'maria de los angeles', 'maria de los dolores', 'maria de los remedios',
+        ]);
+
+        // Tokeniza respetando compuestos: recorre las palabras de izq a der y, si el
+        // cuádruple/trío/par actual forma un nombre compuesto conocido, los agrupa en
+        // un único token y avanza. Si no, mete la palabra actual como token y avanza 1.
+        // Orden: cuádruple > trío > par (más específico primero).
+        function _tokenizeRespectingCompounds(text) {
+            const words = text.split(' ');
+            const tokens = [];
+            let i = 0;
+            while (i < words.length) {
+                if (i + 3 < words.length) {
+                    const quad = _normalizeForCompare(words[i] + ' ' + words[i + 1] + ' ' + words[i + 2] + ' ' + words[i + 3]);
+                    if (_COMPOUND_QUADRUPLES.has(quad)) {
+                        tokens.push(words[i] + ' ' + words[i + 1] + ' ' + words[i + 2] + ' ' + words[i + 3]);
+                        i += 4; continue;
+                    }
+                }
+                if (i + 2 < words.length) {
+                    const triple = _normalizeForCompare(words[i] + ' ' + words[i + 1] + ' ' + words[i + 2]);
+                    if (_COMPOUND_TRIPLES.has(triple)) {
+                        tokens.push(words[i] + ' ' + words[i + 1] + ' ' + words[i + 2]);
+                        i += 3; continue;
+                    }
+                }
+                if (i + 1 < words.length) {
+                    const pair = _normalizeForCompare(words[i] + ' ' + words[i + 1]);
+                    if (_COMPOUND_PAIRS.has(pair)) {
+                        tokens.push(words[i] + ' ' + words[i + 1]);
+                        i += 2; continue;
+                    }
+                }
+                tokens.push(words[i]);
+                i += 1;
+            }
+            return tokens;
+        }
+
+        function normalizeNameFormat(raw) {
+            if (!raw) return { name: '', changed: false };
+            const trimmed = String(raw).replace(/\s+/g, ' ').trim();
+            if (!trimmed) return { name: '', changed: false };
+
+            // Ya tiene coma → limpiar y devolver tal cual
+            if (trimmed.includes(',')) {
+                const cleaned = trimmed
+                    .replace(/\s*,\s*/g, ', ')  // "Pérez , Juan" → "Pérez, Juan"
+                    .replace(/^\s*,\s*/, '')      // coma al inicio → quitar
+                    .trim();
+                return { name: cleaned, changed: cleaned !== raw };
+            }
+
+            const parts = _tokenizeRespectingCompounds(trimmed);
+            let normalized = trimmed;
+            if (parts.length === 1) {
+                normalized = parts[0];
+            } else if (parts.length === 2) {
+                // "Nombre Apellido" → "Apellido, Nombre"
+                normalized = `${parts[1]}, ${parts[0]}`;
+            } else if (parts.length === 3) {
+                // "Nombre Apellido1 Apellido2" → "Apellido1 Apellido2, Nombre"
+                normalized = `${parts[1]} ${parts[2]}, ${parts[0]}`;
+            } else if (parts.length === 4) {
+                // "Nombre1 Nombre2 Apellido1 Apellido2" → "Apellido1 Apellido2, Nombre1 Nombre2"
+                normalized = `${parts[2]} ${parts[3]}, ${parts[0]} ${parts[1]}`;
+            }
+            // 5+ tokens: demasiado ambiguo, devolver tal cual
+            return { name: normalized, changed: normalized !== raw };
+        }
 
         // Normaliza el nombre de un grupo para que variantes como "1º A", "1ºA",
         // "1°A", "1º ESO A", "1º a" se consideren el mismo grupo ("1º A").
@@ -3514,86 +5385,38 @@ ${stylesStr}
             }, 5000);
         }
 
-        // ================= PANEL DE DIAGNOSTICO FIREBASE =================
-        // Permite al usuario ver el estado de la sincronizacion sin abrir la consola
-        window.toggleFBDebug = async () => {
-            const panel = document.getElementById('fb-debug-panel');
-            const content = document.getElementById('fb-debug-content');
-            const debug = window.__firebaseDebug || {};
+        // ================= TOAST CON ACCIÓN (Deshacer normalización) =================
+        // Muestra un toast azul con un botón de acción. Útil para "deshacer" una
+        // normalización automática de nombre cuando la heurística se equivoca.
+        // Tras 8s o al pulsar el botón, el toast se oculta. Si se pulsa el botón,
+        // se ejecuta el callback onAction().
+        let _toastActionTimeoutId = null;
+        let _toastActionCallback = null;
+        function showToastWithAction(msg, actionLabel, onAction) {
+            const toast = document.getElementById('toast-action');
+            document.getElementById('toast-action-msg').textContent = msg;
+            const btn = document.getElementById('toast-action-btn');
+            btn.textContent = actionLabel || 'Deshacer';
+            _toastActionCallback = typeof onAction === 'function' ? onAction : null;
 
-            if (panel.style.display === 'none' || !panel.style.display) {
-                // Construir contenido
-                const status = (ok) => ok ? '<span class="text-green-600 font-bold">OK</span>' : '<span class="text-red-600 font-bold">NO</span>';
-                const counts = debug.counts || {};
-                const loaded = debug.collectionsLoaded || {};
-                const errors = debug.lastErrors || [];
-                const otherPaths = debug.otherPaths || [];
-                const currentAppId = activeAppId; // valor real actual
+            // Reasignar el handler cada vez (evita acumular listeners)
+            btn.onclick = () => {
+                toast.style.opacity = '0';
+                if (_toastActionTimeoutId) { clearTimeout(_toastActionTimeoutId); _toastActionTimeoutId = null; }
+                const cb = _toastActionCallback;
+                _toastActionCallback = null;
+                if (cb) { try { cb(); } catch (e) { console.error('Toast action error:', e); } }
+            };
 
-                let html = '';
-                html += `<div><b>Project ID:</b> ${(debug.config || {}).projectId || '?'}</div>`;
-                html += `<div><b>Auth Domain:</b> ${(debug.config || {}).authDomain || '?'}</div>`;
-                html += `<div><b>App ID activo:</b> <span class="text-blue-600 font-bold">${currentAppId}</span></div>`;
-                html += `<div><b>UID anonimo:</b> ${debug.authUid || '(no autenticado)'}</div>`;
-                html += `<div class="border-t pt-2 mt-2"><b>Colecciones (ruta activa):</b></div>`;
-                html += `<div>- users: ${status(loaded.users)} (${counts.users || 0} docs)</div>`;
-                html += `<div>- students: ${status(loaded.students)} (${counts.students || 0} docs)</div>`;
-                html += `<div>- logs: ${status(loaded.logs)} (${counts.logs || 0} docs)</div>`;
-
-                // Seccion de exploracion de rutas alternativas
-                html += `<div class="border-t pt-2 mt-2"><b>Rutas alternativas:</b></div>`;
-                if (otherPaths.length === 0) {
-                    html += `<div class="text-gray-500 italic">No escaneado aun.</div>`;
-                    html += `<button onclick="window.scanAndShowPaths()" class="mt-1 w-full bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-xs font-medium">Escanear otras rutas</button>`;
-                } else {
-                    otherPaths.forEach(p => {
-                        const isActive = p.appId === currentAppId;
-                        const hasData = (p.users > 0 || p.students > 0);
-                        const colorClass = hasData ? 'text-green-700' : 'text-gray-500';
-                        const bgClass = isActive ? 'bg-blue-50' : '';
-                        html += `<div class="${bgClass} p-1 rounded text-xs">`;
-                        html += `<div class="${colorClass}"><b>${p.appId}</b>${isActive ? ' (ACTIVO)' : ''}</div>`;
-                        if (p.error) {
-                            html += `<div class="text-red-600">Error: ${p.error}</div>`;
-                        } else {
-                            html += `<div>users: ${p.users} | students: ${p.students}</div>`;
-                            if (hasData && !isActive) {
-                                html += `<button onclick="window.switchAppId('${p.appId}')" class="mt-1 bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-[10px] font-medium">Usar esta ruta</button>`;
-                            }
-                        }
-                        html += `</div>`;
-                    });
-                    html += `<button onclick="window.scanAndShowPaths()" class="mt-2 w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-1.5 rounded text-xs font-medium">Re-escanear</button>`;
-                }
-
-                if (errors.length > 0) {
-                    html += `<div class="border-t pt-2 mt-2"><b>Ultimos errores (${errors.length}):</b></div>`;
-                    errors.slice(-5).forEach(e => {
-                        const d = new Date(e.ts).toLocaleTimeString();
-                        html += `<div class="text-red-600">[${d}] ${e.type}: ${e.code || ''} ${e.message || ''}</div>`;
-                    });
-                } else {
-                    html += `<div class="border-t pt-2 mt-2 text-green-600">Sin errores registrados.</div>`;
-                }
-
-                html += `<div class="border-t pt-2 mt-2 text-gray-500 text-[10px]">Ruta: artifacts/${currentAppId}/public/data/pisaporte_*</div>`;
-                html += `<div class="text-gray-500 text-[10px]">Si no ves datos aqui pero si en otra ruta, pulsa "Usar esta ruta" para cambiar.</div>`;
-
-                content.innerHTML = html;
-                panel.style.display = 'flex';
-            } else {
-                panel.style.display = 'none';
-            }
-        };
-
-        // Escanea rutas y refresca el panel
-        window.scanAndShowPaths = async () => {
-            showToast("Escaneando rutas alternativas...");
-            await window.scanOtherAppPaths();
-            // Forzar re-render del panel
-            document.getElementById('fb-debug-panel').style.display = 'none';
-            window.toggleFBDebug();
-        };
+            toast.style.opacity = '1';
+            if (_toastActionTimeoutId) clearTimeout(_toastActionTimeoutId);
+            _toastActionTimeoutId = setTimeout(() => {
+                toast.style.opacity = '0';
+                _toastActionTimeoutId = null;
+                _toastActionCallback = null;
+            }, 8000);
+        }
+        window.showToastWithAction = showToastWithAction;
 
     </script>
 </body>
