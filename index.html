@@ -894,26 +894,6 @@
         </div>
     </div>
 
-    <!-- Boton flotante de diagnostico Firebase (esquina inferior derecha) -->
-    <button id="fb-debug-btn" onclick="window.toggleFBDebug()" class="fixed bottom-20 right-3 z-40 bg-gray-700 text-white rounded-full w-10 h-10 flex items-center justify-center shadow-lg hover:bg-gray-800 no-print" title="Diagnostico Firebase">
-        <i class="fa-solid fa-stethoscope text-xs"></i>
-    </button>
-
-    <!-- Panel de diagnostico Firebase -->
-    <div id="fb-debug-panel" class="fixed inset-0 bg-black bg-opacity-50 z-50 items-center justify-center no-print" style="display: none;">
-        <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl max-h-[85vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-gray-800">Diagnostico Firebase</h3>
-                <button onclick="window.toggleFBDebug()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div id="fb-debug-content" class="text-xs text-gray-700 space-y-2 font-mono"></div>
-            <div class="flex gap-2 mt-4">
-                <button onclick="window.location.reload()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">Recargar</button>
-                <button onclick="window.toggleFBDebug()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium">Cerrar</button>
-            </div>
-        </div>
-    </div>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -950,24 +930,10 @@
         // Si se cambia, los datos existentes (alumnos, usuarios, logs) DEJARAN de verse
         // porque la app buscara en una ruta distinta.
         //
-        // appIds conocidos donde pueden existir datos:
-        //   - 'pisaporte-app-v1' (ORIGINAL - donde estan los datos historicos)
-        //   - 'pisaporte-v2-app' (usado temporalmente, posiblemente vacio)
-        //   - 'mmo-v2-app'       (usado temporalmente, posiblemente vacio)
-        //
         // Mantenemos 'pisaporte-app-v1' para preservar los datos existentes.
         const DEFAULT_APP_ID = 'pisaporte-app-v1';
-        const KNOWN_APP_IDS = ['pisaporte-app-v1', 'pisaporte-v2-app', 'mmo-v2-app'];
         const appId = typeof __app_id !== 'undefined' ? __app_id : DEFAULT_APP_ID;
-        // activeAppId: puede ser cambiado por el usuario via panel de diagnostico (se guarda en localStorage)
-        let activeAppId = appId;
-        try {
-            const stored = localStorage.getItem('pisaporte_active_app_id');
-            if (stored && KNOWN_APP_IDS.includes(stored)) {
-                activeAppId = stored;
-                console.log("appId activo recuperado de localStorage:", activeAppId);
-            }
-        } catch (e) {}
+        const activeAppId = appId;
 
         // ================= ESTADO GLOBAL =================
         let currentUser = null;         // Autenticación anónima Firebase
@@ -1019,17 +985,15 @@
         window.getCurrentSchoolYear = getCurrentSchoolYear;
         window.formatSchoolYearLabel = formatSchoolYearLabel;
 
-        // Diagnostico Firebase (visible para el usuario via consola y panel)
+        // Estado de Firebase para depuración interna (visible en consola como
+        // window.__firebaseDebug). Sin panel de UI desde la v2.
         window.__firebaseDebug = {
             appId: activeAppId,
-            defaultAppId: DEFAULT_APP_ID,
-            knownAppIds: KNOWN_APP_IDS,
             config: { projectId: firebaseConfig.projectId, authDomain: firebaseConfig.authDomain },
             authUid: null,
             collectionsLoaded: { users: false, students: false, logs: false },
             counts: { users: 0, students: 0, logs: 0 },
-            lastErrors: [],
-            otherPaths: null  // Resultado de escanear otras rutas
+            lastErrors: []
         };
 
         // ================= INICIALIZACIÓN Y AUTH FIREBASE =================
@@ -1108,12 +1072,14 @@
             }
         });
 
-        // Failsafe
+        // Failsafe: si Firebase no responde en 5s, ocultar el overlay de carga
+        // y mostrar un mensaje claro al usuario. Sin panel de diagnóstico desde
+        // la v2, así que el mensaje debe ser accionable por sí mismo.
         setTimeout(() => {
             const overlay = document.getElementById('loading-overlay');
             if(overlay && overlay.style.display !== 'none' && !isAppInitialized) {
                 hideLoading();
-                showToast("Aviso: Conexion muy lenta. Revisa la consola (F12).");
+                showToast("Conexion lenta. Revisa tu red y recarga la pagina si no carga en unos segundos.");
                 console.warn("Firebase no respondio en 5s. Estado actual:", window.__firebaseDebug);
             }
         }, 5000);
@@ -1679,36 +1645,8 @@
                         isAppInitialized = true;
                         // Evaluar flujo de inicio
                         if (allUsers.length === 0) {
-                            // Si no hay usuarios en la ruta activa, buscar en otras rutas conocidas
-                            scanOtherAppPaths().then(() => {
-                                // Re-verificación crítica: mientras se ejecutaba el scan
-                                // (que tarda varios segundos consultando otras rutas),
-                                // puede haber llegado un snapshot del servidor con usuarios.
-                                // En ese caso, NO mostrar el setup screen: ir al login.
-                                if (allUsers.length > 0) {
-                                    console.log('[users] Usuarios llegaron durante el escaneo. Mostrando login en lugar de setup.');
-                                    if (!currentAppUser) {
-                                        showLoginScreen();
-                                    }
-                                    return;
-                                }
-                                if (window.__firebaseDebug.otherPaths) {
-                                    const withData = window.__firebaseDebug.otherPaths.filter(p => p.users > 0 || p.students > 0);
-                                    if (withData.length > 0) {
-                                        console.warn("ATENCION: Se encontraron datos en otras rutas:", withData);
-                                        showToast("Datos encontrados en otra ruta. Revisa el panel de diagnostico (boton estetoscopio).");
-                                    }
-                                }
-                                showSetupAdminScreen();
-                            }).catch(e => {
-                                console.warn('scanOtherAppPaths fallo:', e);
-                                // Incluso en caso de fallo del scan, re-verificar antes de mostrar setup
-                                if (allUsers.length > 0) {
-                                    if (!currentAppUser) showLoginScreen();
-                                } else {
-                                    showSetupAdminScreen();
-                                }
-                            });
+                            // No hay usuarios en la ruta activa → configuración inicial
+                            showSetupAdminScreen();
                         } else if (!currentAppUser) {
                             showLoginScreen();
                         }
@@ -1827,52 +1765,6 @@
             _renderSchoolYearPill();
         }
         window._reloadAllListeners = _reloadAllListeners;
-
-        // ================= EXPLORADOR DE RUTAS ALTERNATIVAS =================
-        // Busca datos en otros appIds conocidos para detectar si los datos estan
-        // en una ruta distinta a la activa (util si se cambio el appId en algun momento)
-        async function scanOtherAppPaths() {
-            const results = [];
-            for (const candidateId of KNOWN_APP_IDS) {
-                if (candidateId === activeAppId) {
-                    results.push({ appId: candidateId, active: true, users: window.__firebaseDebug.counts.users, students: window.__firebaseDebug.counts.students });
-                    continue;
-                }
-                try {
-                    const uSnap = await getDocs(collection(db, 'artifacts', candidateId, 'public', 'data', 'pisaporte_users'));
-                    const sSnap = await getDocs(collection(db, 'artifacts', candidateId, 'public', 'data', 'pisaporte_students'));
-                    // Contar solo usuarios reales (excluir docs reservados __*)
-                    const realUsers = uSnap.docs.filter(d => !d.id.startsWith('__')).length;
-                    const result = {
-                        appId: candidateId,
-                        active: false,
-                        users: realUsers,
-                        students: sSnap.size
-                    };
-                    results.push(result);
-                    console.log(`Escaneo ruta ${candidateId}: users=${realUsers} (${uSnap.size} docs totales), students=${sSnap.size}`);
-                } catch (e) {
-                    console.warn(`Error escaneando ${candidateId}:`, e.code, e.message);
-                    results.push({ appId: candidateId, active: false, users: -1, students: -1, error: e.message });
-                }
-            }
-            window.__firebaseDebug.otherPaths = results;
-            return results;
-        }
-        window.scanOtherAppPaths = scanOtherAppPaths;
-
-        // Cambia el appId activo y recarga la pagina para aplicar el cambio
-        window.switchAppId = async (newAppId) => {
-            if (!KNOWN_APP_IDS.includes(newAppId)) {
-                showToast("appId no valido");
-                return;
-            }
-            if (!confirm(`¿Cambiar la ruta activa a '${newAppId}'? La pagina se recargara.`)) return;
-            try {
-                localStorage.setItem('pisaporte_active_app_id', newAppId);
-            } catch (e) {}
-            window.location.reload();
-        };
 
         // ================= SISTEMA DE LOGIN (PWA) =================
         function showSetupAdminScreen() {
@@ -2059,7 +1951,7 @@
             if (lu) lu.value = '';
             if (lp) lp.value = '';
             // Cerrar todos los modales abiertos
-            ['user-modal', 'student-modal', 'qr-preview-modal', 'confirm-modal', 'fb-debug-panel'].forEach(id => {
+            ['user-modal', 'student-modal', 'qr-preview-modal', 'confirm-modal'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
@@ -5525,92 +5417,6 @@ ${stylesStr}
             }, 8000);
         }
         window.showToastWithAction = showToastWithAction;
-
-        // ================= PANEL DE DIAGNOSTICO FIREBASE =================
-        // Permite al usuario ver el estado de la sincronizacion sin abrir la consola
-        window.toggleFBDebug = async () => {
-            const panel = document.getElementById('fb-debug-panel');
-            const content = document.getElementById('fb-debug-content');
-            const debug = window.__firebaseDebug || {};
-
-            if (panel.style.display === 'none' || !panel.style.display) {
-                // Construir contenido
-                const status = (ok) => ok ? '<span class="text-green-600 font-bold">OK</span>' : '<span class="text-red-600 font-bold">NO</span>';
-                const counts = debug.counts || {};
-                const loaded = debug.collectionsLoaded || {};
-                const errors = debug.lastErrors || [];
-                const otherPaths = debug.otherPaths || [];
-                const currentAppId = activeAppId; // valor real actual
-
-                let html = '';
-                html += `<div><b>Project ID:</b> ${(debug.config || {}).projectId || '?'}</div>`;
-                html += `<div><b>Auth Domain:</b> ${(debug.config || {}).authDomain || '?'}</div>`;
-                html += `<div><b>App ID activo:</b> <span class="text-blue-600 font-bold">${currentAppId}</span></div>`;
-                html += `<div><b>UID anonimo:</b> ${debug.authUid || '(no autenticado)'}</div>`;
-                html += `<div class="border-t pt-2 mt-2"><b>Colecciones (ruta activa):</b></div>`;
-                html += `<div>- users: ${status(loaded.users)} (${counts.users || 0} docs)</div>`;
-                html += `<div>- students: ${status(loaded.students)} (${counts.students || 0} docs)</div>`;
-                html += `<div>- logs: ${status(loaded.logs)} (${counts.logs || 0} docs)</div>`;
-
-                // Seccion de exploracion de rutas alternativas
-                html += `<div class="border-t pt-2 mt-2"><b>Rutas alternativas:</b></div>`;
-                if (otherPaths.length === 0) {
-                    html += `<div class="text-gray-500 italic">No escaneado aun.</div>`;
-                    html += `<button onclick="window.scanAndShowPaths()" class="mt-1 w-full bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-xs font-medium">Escanear otras rutas</button>`;
-                } else {
-                    otherPaths.forEach(p => {
-                        const isActive = p.appId === currentAppId;
-                        // Para la ruta activa, usar los conteos EN VIVO de los listeners
-                        // (más frescos que el scan cacheado, que pudo correr cuando aún
-                        // no había llegado el snapshot del servidor con los datos reales).
-                        const displayUsers = isActive ? (counts.users || 0) : p.users;
-                        const displayStudents = isActive ? (counts.students || 0) : p.students;
-                        const hasData = (displayUsers > 0 || displayStudents > 0);
-                        const colorClass = hasData ? 'text-green-700' : 'text-gray-500';
-                        const bgClass = isActive ? 'bg-blue-50' : '';
-                        html += `<div class="${bgClass} p-1 rounded text-xs">`;
-                        html += `<div class="${colorClass}"><b>${p.appId}</b>${isActive ? ' (ACTIVO)' : ''}</div>`;
-                        if (p.error) {
-                            html += `<div class="text-red-600">Error: ${p.error}</div>`;
-                        } else {
-                            html += `<div>users: ${displayUsers} | students: ${displayStudents}</div>`;
-                            if (hasData && !isActive) {
-                                html += `<button onclick="window.switchAppId('${p.appId}')" class="mt-1 bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-[10px] font-medium">Usar esta ruta</button>`;
-                            }
-                        }
-                        html += `</div>`;
-                    });
-                    html += `<button onclick="window.scanAndShowPaths()" class="mt-2 w-full bg-gray-200 hover:bg-gray-300 text-gray-700 py-1.5 rounded text-xs font-medium">Re-escanear</button>`;
-                }
-
-                if (errors.length > 0) {
-                    html += `<div class="border-t pt-2 mt-2"><b>Ultimos errores (${errors.length}):</b></div>`;
-                    errors.slice(-5).forEach(e => {
-                        const d = new Date(e.ts).toLocaleTimeString();
-                        html += `<div class="text-red-600">[${d}] ${e.type}: ${e.code || ''} ${e.message || ''}</div>`;
-                    });
-                } else {
-                    html += `<div class="border-t pt-2 mt-2 text-green-600">Sin errores registrados.</div>`;
-                }
-
-                html += `<div class="border-t pt-2 mt-2 text-gray-500 text-[10px]">Ruta: artifacts/${currentAppId}/public/data/pisaporte_*</div>`;
-                html += `<div class="text-gray-500 text-[10px]">Si no ves datos aqui pero si en otra ruta, pulsa "Usar esta ruta" para cambiar.</div>`;
-
-                content.innerHTML = html;
-                panel.style.display = 'flex';
-            } else {
-                panel.style.display = 'none';
-            }
-        };
-
-        // Escanea rutas y refresca el panel
-        window.scanAndShowPaths = async () => {
-            showToast("Escaneando rutas alternativas...");
-            await window.scanOtherAppPaths();
-            // Forzar re-render del panel
-            document.getElementById('fb-debug-panel').style.display = 'none';
-            window.toggleFBDebug();
-        };
 
     </script>
 </body>
