@@ -1664,12 +1664,34 @@
                     }
 
                     if (!isAppInitialized) {
+                        // Si el snapshot es de caché local y viene vacío (0 usuarios),
+                        // NO decidir aún: esperar al snapshot del servidor. La persistencia
+                        // offline puede devolver un snapshot vacío inicial aunque el
+                        // servidor tenga datos, lo que provocaba mostrar el setup screen
+                        // innecesariamente ("configuración inicial" aunque existan usuarios).
+                        const fromCacheInitial = snapshot.metadata && snapshot.metadata.fromCache;
+                        if (fromCacheInitial && allUsers.length === 0) {
+                            console.log('[users] Snapshot inicial de caché vacío. Esperando al servidor antes de decidir setup vs login.');
+                            return;
+                        }
+
                         hideLoading();
                         isAppInitialized = true;
                         // Evaluar flujo de inicio
                         if (allUsers.length === 0) {
                             // Si no hay usuarios en la ruta activa, buscar en otras rutas conocidas
                             scanOtherAppPaths().then(() => {
+                                // Re-verificación crítica: mientras se ejecutaba el scan
+                                // (que tarda varios segundos consultando otras rutas),
+                                // puede haber llegado un snapshot del servidor con usuarios.
+                                // En ese caso, NO mostrar el setup screen: ir al login.
+                                if (allUsers.length > 0) {
+                                    console.log('[users] Usuarios llegaron durante el escaneo. Mostrando login en lugar de setup.');
+                                    if (!currentAppUser) {
+                                        showLoginScreen();
+                                    }
+                                    return;
+                                }
                                 if (window.__firebaseDebug.otherPaths) {
                                     const withData = window.__firebaseDebug.otherPaths.filter(p => p.users > 0 || p.students > 0);
                                     if (withData.length > 0) {
@@ -1680,14 +1702,29 @@
                                 showSetupAdminScreen();
                             }).catch(e => {
                                 console.warn('scanOtherAppPaths fallo:', e);
-                                showSetupAdminScreen();
+                                // Incluso en caso de fallo del scan, re-verificar antes de mostrar setup
+                                if (allUsers.length > 0) {
+                                    if (!currentAppUser) showLoginScreen();
+                                } else {
+                                    showSetupAdminScreen();
+                                }
                             });
                         } else if (!currentAppUser) {
                             showLoginScreen();
                         }
                     } else if (!currentAppUser && allUsers.length > 0) {
-                        // Si se acaba de crear el primer usuario, forzar vista de login
-                        if (!document.getElementById('form-setup').classList.contains('hidden')) {
+                        // Si se acaba de crear el primer usuario, forzar vista de login.
+                        // También cubre el caso en que el setup screen se mostró por un
+                        // snapshot de caché vacío y luego llegó el snapshot del servidor
+                        // con usuarios: en ese caso, saltar al login.
+                        const formSetup = document.getElementById('form-setup');
+                        const formLogin = document.getElementById('form-login');
+                        const loginViewVisible = formLogin && !formLogin.classList.contains('hidden');
+                        if (formSetup && !formSetup.classList.contains('hidden')) {
+                            showLoginScreen();
+                        } else if (!loginViewVisible) {
+                            // Si el setup NO está visible pero tampoco lo está el login
+                            // (p. ej. aún en loading), asegurar que el login se muestre.
                             showLoginScreen();
                         }
                     } else if (currentAppUser) {
@@ -5523,7 +5560,12 @@ ${stylesStr}
                 } else {
                     otherPaths.forEach(p => {
                         const isActive = p.appId === currentAppId;
-                        const hasData = (p.users > 0 || p.students > 0);
+                        // Para la ruta activa, usar los conteos EN VIVO de los listeners
+                        // (más frescos que el scan cacheado, que pudo correr cuando aún
+                        // no había llegado el snapshot del servidor con los datos reales).
+                        const displayUsers = isActive ? (counts.users || 0) : p.users;
+                        const displayStudents = isActive ? (counts.students || 0) : p.students;
+                        const hasData = (displayUsers > 0 || displayStudents > 0);
                         const colorClass = hasData ? 'text-green-700' : 'text-gray-500';
                         const bgClass = isActive ? 'bg-blue-50' : '';
                         html += `<div class="${bgClass} p-1 rounded text-xs">`;
@@ -5531,7 +5573,7 @@ ${stylesStr}
                         if (p.error) {
                             html += `<div class="text-red-600">Error: ${p.error}</div>`;
                         } else {
-                            html += `<div>users: ${p.users} | students: ${p.students}</div>`;
+                            html += `<div>users: ${displayUsers} | students: ${displayStudents}</div>`;
                             if (hasData && !isActive) {
                                 html += `<button onclick="window.switchAppId('${p.appId}')" class="mt-1 bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-[10px] font-medium">Usar esta ruta</button>`;
                             }
